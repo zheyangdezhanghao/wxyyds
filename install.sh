@@ -24,6 +24,7 @@ FORCE=0
 SKIP_DOWNLOAD=1
 UPGRADE_WECHAT=0
 PATCH_ONLY=1
+YES=0
 BACKUP_DIR="$ROOT_DIR/backups"
 
 RED='\033[0;31m'
@@ -51,13 +52,158 @@ ok()    { echo -e "${GREEN}✅ [OK]${NC} $*"; }
 warn()  { echo -e "${YELLOW}⚠️  [WARN]${NC} $*"; }
 die()   { echo -e "${RED}❌ [ERROR]${NC} $*" >&2; exit 1; }
 
+ask_yes() {
+    local prompt="$1" default="${2:-y}"
+    if [ "$YES" -eq 1 ]; then
+        return 0
+    fi
+    local hint="Y/n"
+    [ "$default" = "n" ] && hint="y/N"
+    read -r -p "$(echo -e "${CYAN}❓ ${prompt} [${hint}]${NC} ")" ans || true
+    ans="${ans:-$default}"
+    case "$ans" in
+        y|Y|yes|YES|是) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+pause_if_interactive() {
+    if [ "$YES" -eq 0 ] && [ -t 0 ]; then
+        echo ""
+        read -r -p "> 按回车键继续..." _
+    fi
+}
+
+check_dependencies() {
+    info "检查运行环境 ..."
+    if ! command -v python3 >/dev/null 2>&1; then
+        die "未找到 python3。请先安装 Xcode 命令行工具：xcode-select --install"
+    fi
+    ok "python3 可用"
+    if [ ! -f "$CONFIG" ]; then
+        die "缺少 offsets 配置：$CONFIG（请完整 clone 仓库，不要只下载 install.sh）"
+    fi
+    ok "offsets 配置就绪"
+}
+
+prompt_full_disk_access() {
+    echo ""
+    echo -e "${YELLOW}💡 首次安装提示${NC}"
+    echo "   若安装失败提示「权限不足」，请到："
+    echo "   系统设置 → 隐私与安全性 → 完整磁盘访问权限"
+    echo "   为「终端 / Cursor / iTerm」开启权限后重新运行安装。"
+    echo ""
+}
+
+ensure_wechat_quit() {
+    if ! pgrep -x WeChat >/dev/null 2>&1; then
+        ok "微信未在运行"
+        return 0
+    fi
+    warn "检测到微信正在运行（安装前需完全退出）"
+    if ask_yes "是否帮你自动退出微信？" "y"; then
+        osascript -e 'quit app "WeChat"' 2>/dev/null || true
+        sleep 2
+        if pgrep -x WeChat >/dev/null 2>&1; then
+            warn "微信仍在运行，请手动退出后重试"
+            die "安装已取消"
+        fi
+        ok "微信已退出"
+    else
+        die "请先完全退出微信，再重新运行：bash install.sh"
+    fi
+}
+
+find_wechat_app() {
+    local candidates=(
+        "/Applications/WeChat.app"
+        "$HOME/Applications/WeChat.app"
+    )
+    for p in "${candidates[@]}"; do
+        if [ -d "$p" ]; then
+            echo "$p"
+            return 0
+        fi
+    done
+    return 1
+}
+
+handle_missing_wechat() {
+    echo ""
+    warn "未在 /Applications 找到 WeChat.app"
+    if ask_yes "是否自动下载并安装已适配的微信版本？（聊天记录不会丢失）" "y"; then
+        bash "$ROOT_DIR/scripts/wechat-download.sh" --fallback --app="$APP_PATH"
+        read_versions
+        ok "微信已安装"
+        return 0
+    fi
+    die "请先安装微信，或指定路径：bash install.sh --app=/path/to/WeChat.app"
+}
+
+handle_unsupported_version() {
+    local build="$1" arch="$2"
+    echo ""
+    warn "当前微信版本 build=${build} 尚未适配 ${arch}"
+    echo ""
+    echo "  你可以："
+    echo "    1) 自动升级到已适配版本（推荐，聊天记录保留）"
+    echo "    2) 查看已支持版本列表"
+    echo "    3) 退出，等待社区适配"
+    echo ""
+    if [ "$YES" -eq 1 ]; then
+        UPGRADE_WECHAT=1
+        bash "$ROOT_DIR/scripts/upgrade-wechat-safe.sh" --yes --app="$APP_PATH"
+        read_versions
+        return 0
+    fi
+    read -r -p "$(echo -e "${CYAN}请选择 [1/2/3]（默认 1）:${NC} ")" choice || true
+    choice="${choice:-1}"
+    case "$choice" in
+        1)
+            bash "$ROOT_DIR/scripts/upgrade-wechat-safe.sh" --app="$APP_PATH"
+            read_versions
+            ;;
+        2)
+            "$ROOT_DIR/tools/wxyyds" versions
+            die "请升级微信或更换版本后重新安装"
+            ;;
+        *)
+            die "已取消安装。你的微信未被修改。"
+            ;;
+    esac
+}
+
+post_install_success() {
+    echo ""
+    if [ -x "$ROOT_DIR/scripts/smoke-stability.sh" ]; then
+        info "运行安装后检查 ..."
+        bash "$ROOT_DIR/scripts/smoke-stability.sh" || warn "部分检查未通过，请查看上方提示"
+    fi
+    echo ""
+    echo -e "${GREEN}==============================${NC}"
+    echo -e "${GREEN}✅ wxyyds 安装成功！${NC}"
+    echo -e "${GREEN}   防撤回 + 多开 已启用${NC}"
+    echo -e "${GREEN}==============================${NC}"
+    echo ""
+    echo "📱 启动微信:  open -a WeChat"
+    echo "📱 多开一个:  open -n \"$APP_PATH\""
+    echo "🗑️  卸载恢复:  bash \"$ROOT_DIR/uninstall.sh\""
+    echo ""
+    if ask_yes "是否现在打开微信？" "y"; then
+        open -a "$APP_PATH" 2>/dev/null || open -a WeChat 2>/dev/null || true
+    fi
+}
+
 usage() {
     cat <<EOF
 Usage: install.sh [options]
 
-默认安全模式：不替换微信、不触碰聊天数据目录，仅对 WeChat.app 打补丁。
+小白推荐：直接双击「一键安装.command」，或在终端运行 bash install.sh
+
+默认安全模式：不替换微信、不触碰聊天数据，仅 patch WeChat.app。
 
 Options:
+  -y, --yes         全自动安装，跳过所有确认（适合脚本）
   --upgrade-wechat  从 canc3s 下载并安装新版本（仅替换 .app，聊天记录保留）
   --skip-download   不自动下载微信（默认开启）
   --with-freeze     注入 Framework（仅禁自动更新，不含撤回 Hook）
@@ -71,8 +217,8 @@ Options:
   wxyyds 永远不会删除或修改该目录。
   仅会备份并修改 /Applications/WeChat.app 内二进制文件。
 
-Intel 用户当前版本 4.1.7 (34817) 已支持，直接运行：
-  bash install.sh
+一行命令安装（复制到终端）：
+  git clone https://github.com/zheyangdezhanghao/wxyyds.git && cd wxyyds && bash install.sh
 EOF
 }
 
@@ -295,6 +441,7 @@ resign_app() {
 main() {
   while [ $# -gt 0 ]; do
     case "$1" in
+      -y|--yes)          YES=1; shift ;;
       --force)           FORCE=1; shift ;;
       --with-hook|--with-freeze) PATCH_ONLY=0; shift ;;
       --patch-only)      PATCH_ONLY=1; shift ;;
@@ -312,6 +459,19 @@ main() {
   echo "   聊天记录目录: ~/Library/Containers/com.tencent.xinWeChat"
   echo "   wxyyds 不会删除或修改该目录，仅 patch WeChat.app 内二进制。"
   echo ""
+
+  check_dependencies
+  prompt_full_disk_access
+
+  local detected_app=""
+  if detected_app="$(find_wechat_app)"; then
+    APP_PATH="$detected_app"
+    FRAMEWORK_DST="$APP_PATH/Contents/MacOS/${FRAMEWORK_NAME}.framework"
+    info "找到微信: $APP_PATH"
+  fi
+
+  ensure_wechat_quit
+  pause_if_interactive
 
   local arch
   arch="$(detect_arch)"
@@ -331,14 +491,7 @@ main() {
   fi
 
   if [ ! -d "$APP_PATH" ]; then
-    warn "WeChat.app not found at $APP_PATH"
-    if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
-      warn "wxyyds 将为你安装最近支持的稳定版本"
-      warn "极客不等官方，但也不蛮干。"
-      bash "$ROOT_DIR/scripts/wechat-download.sh" --fallback --app="$APP_PATH"
-    else
-      die "WeChat.app not found. Open WeChat once or run without --skip-download"
-    fi
+    handle_missing_wechat
   fi
 
   read_versions
@@ -357,19 +510,14 @@ main() {
       echo ""
       warn "当前微信版本 $APP_BUILD 尚未适配"
       warn "将安装最近支持的版本（仅替换 WeChat.app，聊天记录保留）"
-      bash "$ROOT_DIR/scripts/upgrade-wechat-safe.sh" --app="$APP_PATH"
+      bash "$ROOT_DIR/scripts/upgrade-wechat-safe.sh" $([ "$YES" -eq 1 ] && echo --yes) --app="$APP_PATH"
       read_versions
       info "New build: $APP_BUILD"
     else
-      echo ""
-      die "Version $APP_BUILD not supported on $arch.
-
-可选方案：
-  1) 保持现有微信，等待社区适配 offsets（推荐，零风险）
-  2) 升级到已适配版本（聊天记录保留）：
-       bash scripts/upgrade-wechat-safe.sh
-  3) 查看已支持版本：
-       ./tools/wxyyds versions"
+      handle_unsupported_version "$APP_BUILD" "$arch"
+    fi
+    if [ "$FORCE" -eq 0 ] && ! is_build_supported "$APP_BUILD" "$arch"; then
+      die "当前版本 build=${APP_BUILD} 仍不支持，请查看: $ROOT_DIR/tools/wxyyds versions"
     fi
   else
     ok "Version $APP_BUILD supported for $arch"
@@ -406,26 +554,7 @@ main() {
     ok "Patch verification passed"
   fi
 
-  echo ""
-  echo -e "${GREEN}==============================${NC}"
-  echo -e "${GREEN}✅ wxyyds 已就位${NC}"
-  echo -e "${GREEN}   一个极客的理想之地，从现在开始。${NC}"
-  echo -e "${GREEN}==============================${NC}"
-  echo ""
-  echo "启动微信:"
-  echo "  open -a WeChat"
-  echo ""
-  echo "多开:"
-  echo "  open -n $APP_PATH"
-  echo ""
-  echo "查看版本支持:"
-  echo "  $ROOT_DIR/tools/wxyyds versions"
-  echo ""
-  echo "更新 offsets:"
-  echo "  $ROOT_DIR/tools/wxyyds update"
-  echo ""
-  echo "卸载:"
-  echo "  bash $ROOT_DIR/uninstall.sh"
+  post_install_success
 }
 
 main "$@"

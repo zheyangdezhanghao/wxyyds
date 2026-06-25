@@ -16,7 +16,9 @@ DerivedData/
 *.bak
 /tmp/
 .env
-*.log
+.github-token
+
+*.xcuserstate
 
 # Framework 构建产物（体积大，通过 Release 分发）
 Rely/Plugin/WXYyds.framework/

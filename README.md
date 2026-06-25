@@ -37,19 +37,38 @@
 
 ## 快速安装
 
+### 🟢 小白推荐：双击安装
+
+1. [下载本项目](https://github.com/zheyangdezhanghao/wxyyds/archive/refs/heads/main.zip) 或 `git clone`
+2. **完全退出微信**
+3. 双击 **`一键安装.command`**
+4. 若被拦截：右键 → **打开** → 确认
+
+> 详细图文说明见 [docs/快速安装.md](docs/快速安装.md)
+
+### 🟢 一行命令（自动下载 + 安装）
+
 ```bash
-git clone https://github.com/wxyyds/wxyyds.git
+curl -fsSL https://raw.githubusercontent.com/zheyangdezhanghao/wxyyds/main/scripts/bootstrap.sh | bash
+```
+
+### 手动安装
+
+```bash
+git clone https://github.com/zheyangdezhanghao/wxyyds.git
 cd wxyyds
 bash install.sh
 ```
 
 安装脚本会自动：
 
-1. 检测 CPU 架构（arm64 / x86_64）
-2. 检测微信 `CFBundleVersion`
-3. 版本不匹配时从 [canc3s/wechat-versions](https://github.com/canc3s/wechat-versions/releases) 下载最近支持版
-4. SHA256 校验后安装
-5. 应用 Binary Patch 或注入 Framework
+1. 检查环境（python3、offsets）
+2. 检测 CPU 架构（arm64 / x86_64）
+3. 提示退出微信（可自动帮你退出）
+4. 检测微信 `CFBundleVersion`，不支持时**交互式升级**（聊天记录保留）
+5. 备份 → 打补丁 → 重签名 → 安装后自检
+
+全自动（无确认）：`bash install.sh --yes`
 
 ### 先打开一次微信
 
@@ -88,8 +107,12 @@ bash uninstall.sh
 
 ```
 wxyyds/
+├── 一键安装.command        # 双击傻瓜安装（小白推荐）
 ├── install.sh              # 一键安装
 ├── uninstall.sh            # 卸载
+├── scripts/
+│   ├── bootstrap.sh        # 一行 curl 在线安装
+│   └── smoke-stability.sh  # 安装后自检
 ├── offsets/
 │   ├── config.json         # 合并自 tanranv5 的 patch offsets
 │   └── manifest.json       # 版本 ↔ canc3s release 映射
