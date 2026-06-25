@@ -1,0 +1,27 @@
+# 本地备份（含用户微信二进制）
+backups/
+
+# RE 临时分析产物（勿提交）
+/.*.txt
+Rely/golden/*.dylib
+
+__pycache__/
+*.pyc
+
+*.xcuserstate
+*.xcbkptlist
+build/
+DerivedData/
+*.dmg
+*.bak
+/tmp/
+.env
+*.log
+
+# Framework 构建产物（体积大，通过 Release 分发）
+Rely/Plugin/WXYyds.framework/
+Rely/insert_dylib
+Rely/insert_dylib_*
+
+# 保留 README
+!Rely/Plugin/README.md

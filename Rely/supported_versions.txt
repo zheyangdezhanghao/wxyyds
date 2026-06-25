@@ -1,0 +1,5 @@
+# wxyyds supported WeChat versions (Framework / Hook injection mode)
+# Format: DisplayVersion|CFBundleShortVersionString|CFBundleVersion|Note
+
+4.1.11.21|4.1.11|269077|Intel RecallNotify + FreezeLock + MultiGate
+4.1.10.53|4.1.10|268853|Apple Silicon Framework full features

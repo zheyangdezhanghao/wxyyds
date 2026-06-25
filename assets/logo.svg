@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 120" fill="none">
+  <rect width="320" height="120" rx="12" fill="#1A1A2E"/>
+  <text x="24" y="52" font-family="Menlo, Monaco, monospace" font-size="28" font-weight="bold" fill="#07C160">wxyyds</text>
+  <text x="24" y="78" font-family="PingFang SC, sans-serif" font-size="13" fill="#8892B0">一个极客的理想之地</text>
+  <text x="24" y="98" font-family="Menlo, monospace" font-size="10" fill="#E94560">Where Geeks Take Control</text>
+  <circle cx="280" cy="60" r="28" stroke="#07C160" stroke-width="2" fill="none"/>
+  <text x="280" y="66" text-anchor="middle" font-family="Menlo, monospace" font-size="14" fill="#07C160">YYDS</text>
+</svg>

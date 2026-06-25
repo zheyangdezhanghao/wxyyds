@@ -1,0 +1,21 @@
+{
+  "version": "269077",
+  "arch": "x86_64",
+  "binary": "Contents/Resources/wechat.dylib",
+  "revokeCallSiteVA": "0x4F4D44E",
+  "revokeHandlerVA": "0x4F4D4C0",
+  "hookPointerSlotVA": "0x94D5750",
+  "rawMessageTemplateVA": "0x7F62B30",
+  "messageWrapFromRawVA": "0x4DF60F0",
+  "messageWrapDestructVA": "0x5178C90",
+  "messageWrapInitVA": "0x5178C20",
+  "insertPaySysMsgToSessionVA": "0x3814750",
+  "messageWrapSize": 616,
+  "layout": {
+    "remoteUserOrSessionOffset": 24,
+    "selfUserOffset": 48,
+    "createTimeMsOffset": 256,
+    "createTimeSecOffset": 276,
+    "contentOffset": 328
+  }
+}

@@ -1,0 +1,210 @@
+#!/usr/bin/env python3
+"""
+wxyyds CLI — 一个极客的理想之地
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import plistlib
+import subprocess
+import sys
+import urllib.request
+from pathlib import Path
+
+VERSION = "0.1.0"
+DEFAULT_APP = Path("/Applications/WeChat.app")
+BANNER = r"""
+ ██╗    ██╗██╗  ██╗██╗   ██╗██╗   ██╗██████╗ ███████╗
+ ██║    ██║╚██╗██╔╝╚██╗ ██╔╝██║   ██║██╔══██╗██╔════╝
+ ██║ █╗ ██║ ╚███╔╝  ╚████╔╝ ██║   ██║██║  ██║███████╗
+ ██║███╗██║ ██╔██╗   ╚██╔╝  ██║   ██║██║  ██║╚════██║
+ ╚███╔███╔╝██╔╝ ██╗   ██║   ╚██████╔╝██████╔╝███████║
+  ╚══╝╚══╝ ╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═════╝ ╚══════╝
+          一个极客的理想之地 · Where Geeks Take Control
+"""
+
+
+def repo_root() -> Path:
+    env = os.environ.get("WXYYDS_HOME")
+    if env:
+        return Path(env)
+    return Path(__file__).resolve().parent.parent
+
+
+def detect_arch() -> str:
+    import platform
+
+    m = platform.machine().lower()
+    if m in ("arm64", "aarch64"):
+        return "arm64"
+    return "x86_64"
+
+
+def read_build(app: Path) -> str | None:
+    plist_path = app / "Contents/Info.plist"
+    if not plist_path.exists():
+        return None
+    with plist_path.open("rb") as f:
+        plist = plistlib.load(f)
+    return str(plist.get("CFBundleVersion", ""))
+
+
+def read_short_version(app: Path) -> str | None:
+    plist_path = app / "Contents/Info.plist"
+    if not plist_path.exists():
+        return None
+    with plist_path.open("rb") as f:
+        plist = plistlib.load(f)
+    return str(plist.get("CFBundleShortVersionString", ""))
+
+
+def load_manifest(root: Path) -> dict:
+    path = root / "offsets/manifest.json"
+    with path.open() as f:
+        return json.load(f)
+
+
+def load_configs(root: Path) -> list[dict]:
+    path = root / "offsets/config.json"
+    with path.open() as f:
+        return json.load(f)
+
+
+def supported_builds(root: Path, arch: str) -> list[str]:
+    builds = []
+    for cfg in load_configs(root):
+        for target in cfg.get("targets", []):
+            for entry in target.get("entries", []):
+                if entry.get("arch") == arch:
+                    builds.append(cfg["version"])
+                    break
+    return sorted(set(builds), key=int)
+
+
+def is_supported(root: Path, build: str, arch: str) -> bool:
+    return build in supported_builds(root, arch)
+
+
+def cmd_versions(args: argparse.Namespace) -> int:
+    root = repo_root()
+    arch = detect_arch()
+    app = Path(args.app)
+    build = read_build(app) if app.exists() else None
+
+    print("------ wxyyds versions ------")
+    print(f"Host arch:     {arch}")
+    print(f"CLI version:   {VERSION}")
+    if build:
+        print(f"Current build: {build}")
+        print(f"Supported:     {'yes' if is_supported(root, build, arch) else 'no'}")
+    else:
+        print("WeChat.app not found or unreadable")
+
+    print("------ Supported builds ------")
+    for b in supported_builds(root, arch):
+        print(b)
+    return 0
+
+
+def cmd_patch(args: argparse.Namespace) -> int:
+    root = repo_root()
+    arch = detect_arch()
+    app = Path(args.app)
+    build = read_build(app)
+    if not build:
+        print("ERROR: Cannot read WeChat CFBundleVersion", file=sys.stderr)
+        return 1
+
+    if not is_supported(root, build, arch):
+        print(f"ERROR: Build {build} not supported on {arch}", file=sys.stderr)
+        print("Run: wxyyds install  (auto downgrade to supported version)", file=sys.stderr)
+        return 1
+
+    patcher = root / "tools/patcher.py"
+    config = root / "offsets/config.json"
+    rc = subprocess.call(
+        [sys.executable, str(patcher), str(app), str(config), build, arch]
+    )
+    if rc != 0:
+        return rc
+
+    print("------ Resign ------")
+    for cmd in [
+        ["codesign", "--remove-sign", str(app)],
+        ["codesign", "--force", "--deep", "--sign", "-", str(app)],
+        ["xattr", "-cr", str(app)],
+    ]:
+        subprocess.run(cmd, check=False)
+    print("Done!")
+    return 0
+
+
+def cmd_update(args: argparse.Namespace) -> int:
+    root = repo_root()
+    print(BANNER)
+    print("Checking for wxyyds updates...")
+
+    remote_manifest_url = os.environ.get(
+        "WXYYDS_MANIFEST_URL",
+        "https://raw.githubusercontent.com/wxyyds/wxyyds/main/offsets/manifest.json",
+    )
+    try:
+        with urllib.request.urlopen(remote_manifest_url, timeout=10) as resp:
+            remote = json.loads(resp.read().decode())
+        print(f"Remote manifest updated: {remote.get('updated', 'unknown')}")
+    except Exception as e:
+        print(f"WARN: Cannot fetch remote manifest: {e}")
+        print("Using local offsets only.")
+
+    config_url = os.environ.get(
+        "WXYYDS_CONFIG_URL",
+        "https://raw.githubusercontent.com/wxyyds/wxyyds/main/offsets/config.json",
+    )
+    try:
+        with urllib.request.urlopen(config_url, timeout=15) as resp:
+            remote_cfg = json.loads(resp.read().decode())
+        local_cfg_path = root / "offsets/config.json"
+        local_cfg_path.write_text(json.dumps(remote_cfg, indent=2) + "\n")
+        print(f"Updated offsets/config.json ({len(remote_cfg)} versions)")
+    except Exception as e:
+        print(f"WARN: Cannot update config.json: {e}")
+
+    fw_path = root / "Rely/Plugin/WXYyds.framework"
+    if fw_path.exists():
+        print("Framework present locally. Re-run install to re-inject.")
+    else:
+        print("Framework not bundled. Binary patch mode only.")
+
+    print("\n🔄 wxyyds offsets updated. Run install.sh to re-apply patches.")
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        prog="wxyyds",
+        description="wxyyds — 一个极客的理想之地",
+    )
+    parser.add_argument("--app", default=str(DEFAULT_APP), help="WeChat.app path")
+    sub = parser.add_subparsers(dest="command")
+
+    sub.add_parser("versions", help="List supported versions").set_defaults(
+        func=cmd_versions
+    )
+    sub.add_parser("patch", help="Patch WeChat.app").set_defaults(func=cmd_patch)
+    sub.add_parser("update", help="Update offsets from remote").set_defaults(
+        func=cmd_update
+    )
+
+    args = parser.parse_args()
+    if not args.command:
+        print(BANNER)
+        parser.print_help()
+        return 0
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

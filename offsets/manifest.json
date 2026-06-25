@@ -1,0 +1,145 @@
+{
+  "$schema": "https://raw.githubusercontent.com/wxyyds/wxyyds/main/offsets/manifest.schema.json",
+  "updated": "2026-06-25",
+  "wechat_versions_source": "https://github.com/canc3s/wechat-versions/releases",
+  "offsets_source": "https://github.com/tanranv5/WeChatTweak/blob/master/config.json",
+  "versions": [
+    {
+      "build": "269077",
+      "display": "4.1.11.21",
+      "short": "4.1.11",
+      "arch": ["x86_64"],
+      "binary": "Contents/Resources/wechat.dylib",
+      "canc3s_tag": "v4.1.11.21-mac",
+      "dmg": "WeChatMac_4.1.11.dmg",
+      "features": ["revoke", "multiInstance"],
+      "plugin": "patch"
+    },
+    {
+      "build": "268853",
+      "display": "4.1.10.53",
+      "short": "4.1.10",
+      "arch": ["arm64"],
+      "binary": "Contents/Resources/wechat.dylib",
+      "canc3s_tag": "v4.1.10.53-mac",
+      "dmg": "WeChatMac_4.1.10.53.dmg",
+      "features": ["revoke", "multiInstance", "antiUpdate", "exitWatch", "openLink"],
+      "plugin": "framework"
+    },
+    {
+      "build": "268851",
+      "display": "4.1.10.52",
+      "short": "4.1.10",
+      "arch": ["x86_64"],
+      "binary": "Contents/Resources/wechat.dylib",
+      "canc3s_tag": "v4.1.10.53-mac",
+      "dmg": "WeChatMac_4.1.10.53.dmg",
+      "features": ["revoke", "multiInstance"],
+      "plugin": "patch"
+    },
+    {
+      "build": "268850",
+      "display": "4.1.10.51",
+      "short": "4.1.10",
+      "arch": ["x86_64"],
+      "binary": "Contents/Resources/wechat.dylib",
+      "features": ["revoke", "multiInstance"],
+      "plugin": "patch"
+    },
+    {
+      "build": "268831",
+      "display": "4.1.10.48",
+      "short": "4.1.10",
+      "arch": ["x86_64"],
+      "binary": "Contents/Resources/wechat.dylib",
+      "features": ["revoke", "multiInstance"],
+      "plugin": "patch"
+    },
+    {
+      "build": "268602",
+      "display": "4.1.9.58",
+      "short": "4.1.9",
+      "arch": ["x86_64"],
+      "binary": "Contents/Resources/wechat.dylib",
+      "features": ["revoke", "multiInstance"],
+      "plugin": "patch"
+    },
+    {
+      "build": "268596",
+      "display": "4.1.9.57",
+      "short": "4.1.9",
+      "arch": ["x86_64"],
+      "binary": "Contents/Resources/wechat.dylib",
+      "features": ["revoke", "multiInstance"],
+      "plugin": "patch"
+    },
+    {
+      "build": "268575",
+      "display": "4.1.9.55",
+      "short": "4.1.9",
+      "arch": ["x86_64"],
+      "binary": "Contents/Resources/wechat.dylib",
+      "features": ["revoke", "multiInstance"],
+      "plugin": "patch"
+    },
+    {
+      "build": "37342",
+      "display": "4.1.8.x",
+      "short": "4.1.8",
+      "arch": ["x86_64"],
+      "binary": "Contents/Frameworks/wechat.dylib",
+      "features": ["revoke", "multiInstance"],
+      "plugin": "patch"
+    },
+    {
+      "build": "36559",
+      "display": "4.1.8.27",
+      "short": "4.1.8",
+      "arch": ["x86_64"],
+      "binary": "Contents/Frameworks/wechat.dylib",
+      "features": ["revoke", "multiInstance"],
+      "plugin": "patch"
+    },
+    {
+      "build": "34817",
+      "display": "4.1.7.x",
+      "short": "4.1.7",
+      "arch": ["x86_64"],
+      "binary": "Contents/MacOS/WeChat",
+      "features": ["revoke", "multiInstance"],
+      "plugin": "patch"
+    },
+    {
+      "build": "34371",
+      "display": "4.1.6.x",
+      "short": "4.1.6",
+      "arch": ["arm64"],
+      "binary": "Contents/MacOS/WeChat",
+      "features": ["revoke", "multiInstance"],
+      "plugin": "patch"
+    },
+    {
+      "build": "32288",
+      "display": "4.1.5.x",
+      "short": "4.1.5",
+      "arch": ["arm64"],
+      "binary": "Contents/MacOS/WeChat",
+      "features": ["revoke", "multiInstance", "antiUpdate"],
+      "plugin": "patch"
+    }
+  ],
+  "fallback": {
+    "arm64": {
+      "build": "268853",
+      "canc3s_tag": "v4.1.10.53-mac",
+      "dmg": "WeChatMac_4.1.10.53.dmg",
+      "note": "Apple Silicon 推荐稳定版，Framework 全功能"
+    },
+    "x86_64": {
+      "build": "269077",
+      "canc3s_tag": "v4.1.11.21-mac",
+      "dmg": "WeChatMac_4.1.11.dmg",
+      "note": "Intel 最新适配版"
+    }
+  }
+}
