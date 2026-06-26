@@ -114,6 +114,14 @@ else
 fi
 
 echo ""
+echo "[Apple Silicon 模拟测试（DMG patch+verify）]"
+if [ "${WXYYDS_SKIP_ARM64_SIM:-0}" = "1" ]; then
+    echo "  ℹ️  跳过（WXYYDS_SKIP_ARM64_SIM=1）"
+else
+    bash "$ROOT/scripts/test-arm64-sim.sh" && PASS=$((PASS + 1)) || FAIL=$((FAIL + 1))
+fi
+
+echo ""
 echo "[安全审计]"
 bash "$ROOT/scripts/audit-secrets.sh" && PASS=$((PASS + 1)) || FAIL=$((FAIL + 1))
 

@@ -71,9 +71,10 @@ def find_va_file_offset_segment(
         cmdsize = read_u32_le(data, lc_offset + 4)
 
         if cmd == LC_SEGMENT_64:
-            vmaddr = read_u64_le(data, lc_offset + 16)
-            vmsize = read_u64_le(data, lc_offset + 24)
-            fileoff = read_u64_le(data, lc_offset + 32)
+            # segname[16] @ +8 → vmaddr @ +24
+            vmaddr = read_u64_le(data, lc_offset + 24)
+            vmsize = read_u64_le(data, lc_offset + 32)
+            fileoff = read_u64_le(data, lc_offset + 40)
 
             if vmaddr <= target_va < vmaddr + vmsize:
                 return slice_offset + fileoff + (target_va - vmaddr)
@@ -99,21 +100,41 @@ def resolve_file_offset(
     return find_va_file_offset_segment(data, slice_offset, target_va)
 
 
-def verify_patch_site(ident: str, original: bytes) -> None:
+def verify_patch_site(ident: str, original: bytes, arch: str = "") -> None:
     """启发式校验，避免再次 patch 到数据段"""
-    if ident == "multiInstance":
-        # 应为条件跳转 jz/jnz (0f 84/0f 85) 或 call 序言
-        if len(original) >= 2 and original[0] == 0x0F and original[1] in (0x84, 0x85):
+    if not original:
+        raise PatcherError(f"patch site for {ident} is empty (bad file offset?)")
+
+    is_arm = arch == "arm64" or (
+        len(original) >= 4
+        and original[-2:] == bytes.fromhex("5fd6")  # ret insn (AArch64)
+    )
+
+    if is_arm:
+        # mov w0,#0/w1,#1; ret  — 已 patch
+        if original in (
+            bytes.fromhex("00008052C0035FD6"),
+            bytes.fromhex("20008052C0035FD6"),
+        ):
             return
-        if original[:2] in (bytes.fromhex("4c89"), bytes.fromhex("4889")):
-            return  # 旧版可能 patch 函数头
-    if ident == "revoke":
-        # 函数序言 push rbp / sub rsp 等
-        if original[0] in (0x55, 0x48, 0x40, 0x53):
+        # stp / sub sp 等常见函数序言 (AArch64)
+        if original[0] in (0xFD, 0xFF, 0xF9, 0xA9, 0xD1):
             return
-    # 已 patch 过
-    if original[:3] == bytes.fromhex("b80100") or original[:3] == bytes.fromhex("909090"):
-        return
+    else:
+        if ident == "multiInstance":
+            # 应为条件跳转 jz/jnz (0f 84/0f 85) 或 call 序言
+            if len(original) >= 2 and original[0] == 0x0F and original[1] in (0x84, 0x85):
+                return
+            if original[:2] in (bytes.fromhex("4c89"), bytes.fromhex("4889")):
+                return  # 旧版可能 patch 函数头
+        if ident == "revoke":
+            # 函数序言 push rbp / sub rsp 等
+            if original[0] in (0x55, 0x48, 0x40, 0x53):
+                return
+        # 已 patch 过 (x86)
+        if original[:3] == bytes.fromhex("b80100") or original[:3] == bytes.fromhex("909090"):
+            return
+
     warn = (
         f"patch site for {ident} looks unusual: {original[:8].hex()} "
         f"(continuing anyway)"
@@ -132,7 +153,7 @@ def patch_slice(
 ) -> None:
     file_offset = resolve_file_offset(data, slice_offset, target_va, binary_rel, ident)
     original = bytes(data[file_offset : file_offset + len(patch)])
-    verify_patch_site(ident, original)
+    verify_patch_site(ident, original, arch_name)
 
     mode = "slice+offset" if uses_slice_relative(binary_rel) else "segment"
     print(

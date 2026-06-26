@@ -28,6 +28,10 @@ jobs:
       - name: Full platform test (arm64 + x86_64 offsets)
         run: bash scripts/test-all.sh
 
+      - name: Apple Silicon patch simulation (DMG download + verify)
+        run: bash scripts/test-arm64-sim.sh
+        timeout-minutes: 15
+
       - name: Security audit
         run: bash scripts/audit-secrets.sh
 

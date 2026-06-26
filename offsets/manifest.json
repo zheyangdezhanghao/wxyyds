@@ -111,29 +111,33 @@
     },
     {
       "build": "34371",
-      "display": "4.1.6.x",
+      "display": "4.1.6.47",
       "short": "4.1.6",
       "arch": ["arm64"],
       "binary": "Contents/MacOS/WeChat",
+      "canc3s_tag": "v4.1.6.47-mac",
+      "dmg": "WeChatMac-4.1.6.47.dmg",
       "features": ["revoke", "multiInstance"],
       "plugin": "patch"
     },
     {
       "build": "32288",
-      "display": "4.1.5.x",
+      "display": "4.1.5.28",
       "short": "4.1.5",
       "arch": ["arm64"],
       "binary": "Contents/MacOS/WeChat",
+      "canc3s_tag": "v4.1.5.28-mac",
+      "dmg": "WeChatMac-4.1.5.28.dmg",
       "features": ["revoke", "multiInstance", "antiUpdate"],
       "plugin": "patch"
     }
   ],
   "fallback": {
     "arm64": {
-      "build": "268853",
-      "canc3s_tag": "v4.1.10.53-mac",
-      "dmg": "WeChatMac_4.1.10.53.dmg",
-      "note": "Apple Silicon 推荐稳定版，Framework 全功能"
+      "build": "32288",
+      "canc3s_tag": "v4.1.5.28-mac",
+      "dmg": "WeChatMac-4.1.5.28.dmg",
+      "note": "Apple Silicon 模拟测试通过（防撤回+多开，build 32288）"
     },
     "x86_64": {
       "build": "269077",

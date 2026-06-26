@@ -17,14 +17,18 @@ SOURCES=(
   "$SRC_DIR/Modules/WXRevokeMarker.mm"
 )
 
-echo "Building WXYyds.framework for $(uname -m) (stability / FreezeLock) ..."
+echo "Building WXYyds.framework for ${WXYYDS_BUILD_ARCH:-$(uname -m)} (stability / FreezeLock) ..."
 
-HOST_ARCH="$(uname -m)"
-case "$HOST_ARCH" in
-    arm64)  BUILD_ARCHS=(arm64) ;;
-    x86_64) BUILD_ARCHS=(x86_64) ;;
-    *)      BUILD_ARCHS=(x86_64) ;;
-esac
+if [ -n "${WXYYDS_BUILD_ARCH:-}" ]; then
+    BUILD_ARCHS=("$WXYYDS_BUILD_ARCH")
+else
+    HOST_ARCH="$(uname -m)"
+    case "$HOST_ARCH" in
+        arm64)  BUILD_ARCHS=(arm64) ;;
+        x86_64) BUILD_ARCHS=(x86_64) ;;
+        *)      BUILD_ARCHS=(x86_64) ;;
+    esac
+fi
 
 ARCH_FLAGS=()
 for a in "${BUILD_ARCHS[@]}"; do
