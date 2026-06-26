@@ -1,34 +1,88 @@
 #import "WXCommon.h"
 #import <UserNotifications/UserNotifications.h>
 
+static NSDictionary *g_cachedConfig = nil;
+static dispatch_queue_t g_configQueue;
+
+static NSString *WXConfigPath(void) {
+    return [NSHomeDirectory() stringByAppendingPathComponent:@".wxyyds/config.json"];
+}
+
+static NSMutableDictionary *WXMutableConfig(void) {
+    NSString *path = WXConfigPath();
+    NSData *data = [NSData dataWithContentsOfFile:path];
+    NSMutableDictionary *root;
+    if (data) {
+        id json = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers error:nil];
+        root = [json isKindOfClass:[NSMutableDictionary class]] ? json : [NSMutableDictionary dictionary];
+    } else {
+        root = [NSMutableDictionary dictionary];
+    }
+    if (![root[@"modules"] isKindOfClass:[NSMutableDictionary class]]) {
+        root[@"modules"] = [NSMutableDictionary dictionary];
+    }
+    return root;
+}
+
+static NSDictionary *WXDefaultConfig(void) {
+    return @{
+        @"modules": @{
+            @"menuBar": @YES,
+            @"recallNotify": @YES,
+            @"recallSync": @NO,
+            @"freezeLock": @YES,
+            @"exitWatch": @NO,
+            @"openLink": @NO,
+            @"timeStampPlus": @NO,
+            @"ghostCheck": @NO,
+            @"keywordAlert": @NO,
+            @"foldPro": @NO,
+        },
+        @"keywordAlert": @{@"keywords": @[@"紧急", @"@所有人"]},
+        @"foldPro": @{@"muteKeywords": @[@"免打扰", @"折叠"]},
+    };
+}
+
+static NSDictionary *WXLoadConfigFresh(void) {
+    NSString *path = WXConfigPath();
+    NSData *data = [NSData dataWithContentsOfFile:path];
+    if (!data) return WXDefaultConfig();
+    id json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+    return [json isKindOfClass:[NSDictionary class]] ? json : WXDefaultConfig();
+}
+
 static NSDictionary *WXLoadConfig(void) {
-    static NSDictionary *cached = nil;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        NSString *path = [NSHomeDirectory() stringByAppendingPathComponent:@".wxyyds/config.json"];
-        NSData *data = [NSData dataWithContentsOfFile:path];
-        if (!data) {
-            cached = @{
-                @"modules": @{
-                    @"recallNotify": @YES,
-                    @"recallSync": @NO,
-                    @"freezeLock": @YES,
-                    @"exitWatch": @NO,
-                    @"openLink": @NO,
-                    @"timeStampPlus": @NO,
-                    @"ghostCheck": @NO,
-                    @"keywordAlert": @NO,
-                    @"foldPro": @NO,
-                },
-                @"keywordAlert": @{@"keywords": @[@"紧急", @"@所有人"]},
-                @"foldPro": @{@"muteKeywords": @[@"免打扰", @"折叠"]},
-            };
-            return;
-        }
-        id json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-        cached = [json isKindOfClass:[NSDictionary class]] ? json : @{};
+        g_configQueue = dispatch_queue_create("com.wxyyds.config", DISPATCH_QUEUE_SERIAL);
+        g_cachedConfig = WXLoadConfigFresh();
     });
-    return cached;
+    __block NSDictionary *cfg = nil;
+    dispatch_sync(g_configQueue, ^{
+        cfg = g_cachedConfig ?: WXDefaultConfig();
+    });
+    return cfg;
+}
+
+void WXSetModuleEnabled(NSString *moduleKey, BOOL enabled) {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        g_configQueue = dispatch_queue_create("com.wxyyds.config", DISPATCH_QUEUE_SERIAL);
+    });
+    dispatch_sync(g_configQueue, ^{
+        NSMutableDictionary *root = WXMutableConfig();
+        NSMutableDictionary *modules = root[@"modules"];
+        modules[moduleKey] = @(enabled);
+        NSData *data = [NSJSONSerialization dataWithJSONObject:root options:NSJSONWritingPrettyPrinted error:nil];
+        if (data) {
+            [[NSFileManager defaultManager] createDirectoryAtPath:[WXConfigPath() stringByDeletingLastPathComponent]
+                                      withIntermediateDirectories:YES
+                                                       attributes:nil
+                                                            error:nil];
+            [data writeToFile:WXConfigPath() atomically:YES];
+        }
+        g_cachedConfig = [root copy];
+    });
 }
 
 BOOL WXModuleEnabled(NSString *moduleKey) {

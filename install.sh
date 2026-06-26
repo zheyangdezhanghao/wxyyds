@@ -255,7 +255,8 @@ Options:
   -y, --yes         全自动安装，跳过所有确认（适合脚本）
   --upgrade-wechat  从 canc3s 下载并安装新版本（仅替换 .app，聊天记录保留）
   --skip-download   不自动下载微信（默认开启）
-  --with-freeze     注入 Framework（仅禁自动更新，不含撤回 Hook）
+  --with-freeze     注入 Framework（菜单 + 撤回提醒 + 禁更新）
+  --with-framework  同 --with-freeze
   --patch-only      仅 Binary Patch，不注入 Framework（默认，最稳）
   --check-only      仅检测版本是否支持，不 patch、不修改微信
   --force           跳过版本检查，强制 patch
@@ -494,7 +495,7 @@ main() {
       -y|--yes)          YES=1; shift ;;
       --check-only)      CHECK_ONLY=1; shift ;;
       --force)           FORCE=1; shift ;;
-      --with-hook|--with-freeze) PATCH_ONLY=0; shift ;;
+      --with-hook|--with-freeze|--with-framework) PATCH_ONLY=0; shift ;;
       --patch-only)      PATCH_ONLY=1; shift ;;
       --skip-download)   SKIP_DOWNLOAD=1; shift ;;
       --upgrade-wechat)  UPGRADE_WECHAT=1; SKIP_DOWNLOAD=0; shift ;;
@@ -541,7 +542,7 @@ main() {
     fi
   elif [ "$arch" = "arm64" ]; then
     info "Apple Silicon: 默认 Patch（防撤回 + 多开）"
-    info "可选 Framework 全功能: bash install.sh --with-freeze（需 insert_dylib）"
+    info "Framework 全功能（菜单+撤回提醒）: bash install.sh --with-framework"
   fi
 
   # 构建 Hook Framework（Intel 4.1.11）
@@ -588,7 +589,7 @@ main() {
   if [ "$PATCH_ONLY" -eq 0 ] && [ -d "$FRAMEWORK_SRC" ] && [ -f "$ROOT_DIR/Rely/insert_dylib" ]; then
     if is_framework_supported "$APP_BUILD" || [ "$APP_BUILD" = "269077" ]; then
       use_hook=1
-      echo "    WXYydsHook: FreezeLock（禁自动更新）"
+      echo "    WXYydsHook: 菜单 + 撤回提醒 + FreezeLock"
       echo "    防撤回: 静态 Patch（revoke + multiInstance）"
       inject_framework "$arch"
       apply_patch "$arch" "$APP_BUILD"

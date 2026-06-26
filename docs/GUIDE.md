@@ -74,18 +74,35 @@ bash install.sh
 |------|------|-------|---------------|
 | 防撤回 | RecallGuard | ✅ Patch | ✅ Patch |
 | 多开 | MultiGate | ✅ Patch | ✅ Patch |
-| 禁自动更新 | FreezeLock | ⚠️ 可选 Framework | ⚠️ 部分版本 / `--with-freeze` |
-| 退群监控 | ExitWatch | ❌ 需 Framework | ⚡ Framework 模式 |
-| 系统浏览器 | OpenLink | ❌ 需 Framework | ⚡ Framework 模式 |
+| 禁自动更新 | FreezeLock | ⚠️ Framework | ⚠️ Framework |
+| 菜单栏助手 | MenuBar | ⚠️ Framework | ⚠️ Framework |
+| 撤回提醒 | RecallNotify | ⚠️ Framework（系统通知） | ⚠️ Framework |
+| 聊天内灰字 | RecallMarker | 🔜 开发中 | 🔜 开发中 |
+| 退群监控 | ExitWatch | ⚠️ Framework | ⚠️ Framework |
+| 系统浏览器 | OpenLink | ⚠️ Framework | ⚠️ Framework |
 
 **默认模式（最稳）**：`bash install.sh` — 仅 Binary Patch，不注入 Framework。
+
+**Framework 模式（类似 [SovietExtension](https://github.com/MustangYM/SovietExtension) 菜单）**：
+
+```bash
+# 需先编译 Framework + insert_dylib
+bash WXYydsHook/build.sh
+# 或 Apple Silicon: bash scripts/build-framework.sh
+
+bash install.sh --with-framework
+```
+
+注入后微信菜单栏会出现 **「wxyyds 助手」**，可开关：阻止更新、撤回提醒、退群监控、系统浏览器、多开。
+
+> **与 SovietExtension 的差异**  
+> - ✅ 已有：菜单栏、防撤回（Patch）、多开、禁更新、撤回系统通知  
+> - 🔜 待做：聊天内灰色系统消息（`insertPaySysMsgToSession`，需按微信版本 RE 偏移）  
+> - 参考实现：[SovietExtension RevokePatch.mm](https://github.com/MustangYM/SovietExtension)
 
 ```bash
 # 多开
 open -n /Applications/WeChat.app
-
-# 可选：注入 Framework（仅 FreezeLock）
-bash install.sh --with-freeze
 ```
 
 ---

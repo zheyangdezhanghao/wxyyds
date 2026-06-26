@@ -87,9 +87,9 @@ static void WXShowRevokeMarker(NSString *xml) {
 
     NSString *replace = WXExtractXMLTag(xml, @"replacemsg");
     NSString *revoker = WXExtractXMLTag(xml, @"fromusername");
-    NSString *body = @"对方撤回了一条消息，原消息已保留在聊天窗口。";
+    NSString *body = @"⚠️ wxyyds 已拦截撤回消息";
     if (replace.length > 0) {
-        body = [NSString stringWithFormat:@"⚠️ 撤回已拦截\n%@", replace];
+        body = [NSString stringWithFormat:@"⚠️ wxyyds 已拦截撤回\n%@", replace];
     } else if (revoker.length > 0) {
         body = [NSString stringWithFormat:@"⚠️ %@ 试图撤回消息（已拦截）", revoker];
     }

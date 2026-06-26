@@ -14,6 +14,10 @@ SOURCES=(
   "$SRC_DIR/WXSwizzle.mm"
   "$SRC_DIR/WXYydsMain.mm"
   "$SRC_DIR/Modules/WXFreezeLock.mm"
+  "$SRC_DIR/Modules/WXMenuManager.mm"
+  "$SRC_DIR/Modules/WXRecallNotify.mm"
+  "$SRC_DIR/Modules/WXExitWatch.mm"
+  "$SRC_DIR/Modules/WXOpenLink.mm"
   "$SRC_DIR/Modules/WXRevokeMarker.mm"
 )
 
@@ -58,7 +62,7 @@ cat > "$OUT_DIR/Resources/Info.plist" <<'PLIST'
     <key>CFBundleName</key>
     <string>WXYyds</string>
     <key>CFBundleVersion</key>
-    <string>0.4.1</string>
+    <string>0.5.0</string>
     <key>CFBundleExecutable</key>
     <string>WXYyds</string>
     <key>CFBundlePackageType</key>
