@@ -32,8 +32,8 @@
 | 自动抢红包 | **RedRush** | 🔒 默认关闭 | 后续可选模块 |
 | 群助手 | **GroupBot** | 🔒 默认关闭 | 后续可选模块 |
 
-> **Intel (x86_64)**：Binary Patch 模式，防撤回 + 多开（offsets 持续同步 [tanranv5/WeChatTweak](https://github.com/tanranv5/WeChatTweak)）  
-> **Apple Silicon (arm64)**：Patch 模式 + 可选 Framework 全功能
+> **Intel (x86_64)**：Binary Patch 模式，防撤回 + 多开（build 269077 等）  
+> **Apple Silicon (arm64)**：Patch 模式 + 可选 Framework 全功能 — 见 [docs/APPLE-SILICON.md](docs/APPLE-SILICON.md)
 
 ## 快速安装
 

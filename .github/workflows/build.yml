@@ -1,0 +1,46 @@
+name: Build & Verify
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make scripts executable
+        run: |
+          chmod +x install.sh uninstall.sh scripts/*.sh tools/wxyyds
+
+      - name: Validate JSON
+        run: |
+          python3 -m json.tool offsets/config.json > /dev/null
+          python3 -m json.tool offsets/manifest.json > /dev/null
+          echo "JSON valid"
+
+      - name: Run verify script
+        run: bash scripts/verify.sh
+
+      - name: Full platform test (arm64 + x86_64 offsets)
+        run: bash scripts/test-all.sh
+
+      - name: Security audit
+        run: bash scripts/audit-secrets.sh
+
+      - name: Test CLI help
+        run: ./tools/wxyyds --help
+
+      - name: Test versions (no WeChat required)
+        run: ./tools/wxyyds versions || true
+
+  # Framework 构建占位 — 待 WXYyds/ 源码就绪后启用
+  # build-framework:
+  #   runs-on: macos-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Build Universal Framework
+  #       run: xcodebuild -project WXYyds/WXYyds.xcodeproj -scheme WXYyds -configuration Release ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO

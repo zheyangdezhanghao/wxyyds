@@ -1,0 +1,76 @@
+name: Check New WeChat Version
+
+on:
+  schedule:
+    - cron: '0 8 * * *'   # 每天 UTC 08:00
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch canc3s latest mac release
+        id: release
+        run: |
+          TAG=$(curl -sL https://api.github.com/repos/canc3s/wechat-versions/releases \
+            | python3 -c "import sys,json; rs=[r for r in json.load(sys.stdin) if '-mac' in r.get('tag_name','')]; print(rs[0]['tag_name'] if rs else '')")
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Latest mac release: $TAG"
+
+      - name: Check if build is in manifest
+        id: check
+        run: |
+          TAG="${{ steps.release.outputs.tag }}"
+          python3 << PY
+          import json, os
+          tag = "$TAG"
+          with open("offsets/manifest.json") as f:
+              m = json.load(f)
+          known = {v.get("canc3s_tag") for v in m.get("versions", [])}
+          for arch in ("arm64", "x86_64"):
+              t = m.get("fallback", {}).get(arch, {}).get("canc3s_tag")
+              if t:
+                  known.add(t)
+          if tag in known:
+              print(f"Already tracked: {tag}")
+          else:
+              print(f"New release needs adaptation: {tag}")
+              with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+                  out.write("needs_issue=true\n")
+          PY
+
+      - name: Create adaptation issue
+        if: steps.check.outputs.needs_issue == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = '${{ steps.release.outputs.tag }}';
+            const title = `offsets: adapt new WeChat release ${tag}`;
+            const body = `## 新版本待适配
+
+            canc3s/wechat-versions 发布了新的 Mac 版本: **${tag}**
+
+            ### 待办
+            - [ ] 下载 DMG 并确认 CFBundleVersion
+            - [ ] 逆向 wechat.dylib 定位 revoke / multiInstance 偏移
+            - [ ] 更新 \`offsets/config.json\`
+            - [ ] 更新 \`offsets/manifest.json\`
+            - [ ] 双架构真机验证
+
+            ### 参考
+            - https://github.com/tanranv5/WeChatTweak/blob/master/config.json
+            - [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md)
+            `;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['offsets', 'help wanted']
+            });

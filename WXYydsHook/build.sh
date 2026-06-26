@@ -17,9 +17,22 @@ SOURCES=(
   "$SRC_DIR/Modules/WXRevokeMarker.mm"
 )
 
-echo "Building WXYyds.framework for x86_64 (stability / FreezeLock) ..."
+echo "Building WXYyds.framework for $(uname -m) (stability / FreezeLock) ..."
+
+HOST_ARCH="$(uname -m)"
+case "$HOST_ARCH" in
+    arm64)  BUILD_ARCHS=(arm64) ;;
+    x86_64) BUILD_ARCHS=(x86_64) ;;
+    *)      BUILD_ARCHS=(x86_64) ;;
+esac
+
+ARCH_FLAGS=()
+for a in "${BUILD_ARCHS[@]}"; do
+    ARCH_FLAGS+=(-arch "$a")
+done
+
 clang++ -dynamiclib \
-    -arch x86_64 \
+    "${ARCH_FLAGS[@]}" \
     -mmacosx-version-min=10.15 \
     -framework Foundation \
     -framework AppKit \

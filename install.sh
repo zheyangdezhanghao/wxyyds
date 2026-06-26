@@ -483,6 +483,9 @@ main() {
     else
       info "Intel Framework 模式: 仅禁自动更新 + 多开 Patch（防撤回仍靠静态 Patch）"
     fi
+  elif [ "$arch" = "arm64" ]; then
+    info "Apple Silicon: 默认 Patch（防撤回 + 多开）"
+    info "可选 Framework 全功能: bash install.sh --with-freeze（需 insert_dylib）"
   fi
 
   # 构建 Hook Framework（Intel 4.1.11）

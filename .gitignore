@@ -17,6 +17,9 @@ DerivedData/
 /tmp/
 .env
 .github-token
+docs/1111
+**/*token*
+*.token
 
 *.xcuserstate
 

@@ -1,6 +1,9 @@
 # GitHub 推送凭证（本地使用，勿提交）
 
-在此文件粘贴一行 GitHub Classic Token（勾选 repo + workflow 权限）。
-文件名应为: .github-token （本文件仅作说明）
+**正确做法**：在项目根目录创建 `.github-token`（一行 token，已在 .gitignore）。
 
-安装 wxyyds 不需要此文件。
+**错误做法**：不要把 token 写在 `docs/1111`、README 或任何会被提交的文件里。
+
+Classic Token 权限：`repo` + `workflow`（推送 CI 配置需要）。
+
+安装 wxyyds **不需要** GitHub Token。
