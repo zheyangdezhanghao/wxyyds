@@ -122,6 +122,10 @@ else
 fi
 
 echo ""
+echo "[Intel 269077 聊天内灰字 RE]"
+bash "$ROOT/scripts/test-recall-inchat.sh" && PASS=$((PASS + 1)) || FAIL=$((FAIL + 1))
+
+echo ""
 echo "[安全审计]"
 bash "$ROOT/scripts/audit-secrets.sh" && PASS=$((PASS + 1)) || FAIL=$((FAIL + 1))
 

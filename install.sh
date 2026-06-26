@@ -589,10 +589,20 @@ main() {
   if [ "$PATCH_ONLY" -eq 0 ] && [ -d "$FRAMEWORK_SRC" ] && [ -f "$ROOT_DIR/Rely/insert_dylib" ]; then
     if is_framework_supported "$APP_BUILD" || [ "$APP_BUILD" = "269077" ]; then
       use_hook=1
-      echo "    WXYydsHook: 菜单 + 撤回提醒 + FreezeLock"
-      echo "    防撤回: 静态 Patch（revoke + multiInstance）"
+      echo "    WXYydsHook: 菜单 + 撤回提醒 + 聊天内灰字 + FreezeLock"
       inject_framework "$arch"
-      apply_patch "$arch" "$APP_BUILD"
+      local patch_ids=""
+      if [ "$APP_BUILD" = "269077" ] && [ "$arch" = "x86_64" ]; then
+        patch_ids="multiInstance"
+        echo "    防撤回: 指针 Hook + 聊天内灰字（仅 multiInstance 静态 Patch）"
+      else
+        echo "    防撤回: 静态 Patch（revoke + multiInstance）"
+      fi
+      if [ -n "$patch_ids" ]; then
+        apply_patch "$arch" "$APP_BUILD" "$patch_ids"
+      else
+        apply_patch "$arch" "$APP_BUILD"
+      fi
     fi
   fi
   if [ "$use_hook" -eq 0 ]; then
@@ -607,8 +617,13 @@ main() {
   echo ""
   info "Post-install verification ..."
   if [ "$use_hook" -eq 1 ]; then
-    python3 "$ROOT_DIR/tools/patcher.py" "$APP_PATH" "$CONFIG" "$APP_BUILD" "$arch" verify || die "Patch verification failed"
-    ok "Patch verification passed (revoke + multiInstance + Framework FreezeLock)"
+    if [ "$APP_BUILD" = "269077" ] && [ "$arch" = "x86_64" ]; then
+      WXYYDS_PATCH_IDS=multiInstance python3 "$ROOT_DIR/tools/patcher.py" "$APP_PATH" "$CONFIG" "$APP_BUILD" "$arch" verify || die "Patch verification failed"
+      ok "Patch verification passed (multiInstance + Framework 指针 Hook 灰字)"
+    else
+      python3 "$ROOT_DIR/tools/patcher.py" "$APP_PATH" "$CONFIG" "$APP_BUILD" "$arch" verify || die "Patch verification failed"
+      ok "Patch verification passed (revoke + multiInstance + Framework)"
+    fi
   else
     python3 "$ROOT_DIR/tools/patcher.py" "$APP_PATH" "$CONFIG" "$APP_BUILD" "$arch" verify || die "Patch verification failed"
     ok "Patch verification passed"

@@ -18,8 +18,10 @@ SOURCES=(
   "$SRC_DIR/Modules/WXRecallNotify.mm"
   "$SRC_DIR/Modules/WXExitWatch.mm"
   "$SRC_DIR/Modules/WXOpenLink.mm"
-  "$SRC_DIR/Modules/WXRevokeMarker.mm"
+  "$SRC_DIR/Modules/WXRevokeInChat.mm"
 )
+
+cp "$ROOT/offsets/hook_269077.json" "$OUT_DIR/Resources/hook_269077.json"
 
 echo "Building WXYyds.framework for ${WXYYDS_BUILD_ARCH:-$(uname -m)} (stability / FreezeLock) ..."
 
@@ -62,7 +64,7 @@ cat > "$OUT_DIR/Resources/Info.plist" <<'PLIST'
     <key>CFBundleName</key>
     <string>WXYyds</string>
     <key>CFBundleVersion</key>
-    <string>0.5.0</string>
+    <string>0.6.0</string>
     <key>CFBundleExecutable</key>
     <string>WXYyds</string>
     <key>CFBundlePackageType</key>
