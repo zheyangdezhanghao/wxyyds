@@ -88,24 +88,89 @@ def is_supported(root: Path, build: str, arch: str) -> bool:
     return build in supported_builds(root, arch)
 
 
+def build_info(root: Path) -> dict[str, dict]:
+    """build -> {archs, short from manifest if any}"""
+    info: dict[str, dict] = {}
+    for cfg in load_configs(root):
+        b = cfg["version"]
+        if b not in info:
+            info[b] = {"archs": set(), "targets": set()}
+        for target in cfg.get("targets", []):
+            info[b]["targets"].add(target.get("identifier", "?"))
+            for entry in target.get("entries", []):
+                a = entry.get("arch")
+                if a:
+                    info[b]["archs"].add(a)
+    return info
+
+
+def manifest_fallback(root: Path) -> dict[str, dict]:
+    m = load_manifest(root)
+    return m.get("fallback", {})
+
+
 def cmd_versions(args: argparse.Namespace) -> int:
     root = repo_root()
-    arch = detect_arch()
+    host_arch = detect_arch()
     app = Path(args.app)
     build = read_build(app) if app.exists() else None
+    short = read_short_version(app) if app.exists() else None
+    all_info = build_info(root)
+    fb = manifest_fallback(root)
 
-    print("------ wxyyds versions ------")
-    print(f"Host arch:     {arch}")
-    print(f"CLI version:   {VERSION}")
+    print("------ wxyyds 版本支持 ------")
+    print(f"本机架构:   {host_arch}")
+    print(f"CLI:        {VERSION}")
     if build:
-        print(f"Current build: {build}")
-        print(f"Supported:     {'yes' if is_supported(root, build, arch) else 'no'}")
+        supported = is_supported(root, build, host_arch)
+        print(f"当前微信:   {short or '?'} (build {build})")
+        print(f"本机可用:   {'✅ 是' if supported else '❌ 否'}")
     else:
-        print("WeChat.app not found or unreadable")
+        print("当前微信:   未找到或无法读取")
 
-    print("------ Supported builds ------")
-    for b in supported_builds(root, arch):
-        print(b)
+    print("")
+    print("------ 推荐版本 (fallback) ------")
+    for arch in ("x86_64", "arm64"):
+        f = fb.get(arch, {})
+        label = "Intel" if arch == "x86_64" else "Apple Silicon"
+        if f:
+            print(
+                f"  {label:16s} build {f.get('build', '?')} "
+                f"({f.get('note', f.get('canc3s_tag', ''))})"
+            )
+        else:
+            print(f"  {label:16s} (未配置)")
+
+    print("")
+    print("------ Intel (x86_64) ------")
+    x64 = [b for b, i in all_info.items() if "x86_64" in i["archs"]]
+    for b in sorted(x64, key=int, reverse=True)[:8]:
+        mark = " ← 当前" if b == build and host_arch == "x86_64" else ""
+        latest = " [最新]" if fb.get("x86_64", {}).get("build") == b else ""
+        print(f"  ✅ build {b}{latest}{mark}")
+    if len(x64) > 8:
+        print(f"  ... 共 {len(x64)} 个 build")
+
+    print("")
+    print("------ Apple Silicon (arm64) ------")
+    arm = [b for b, i in all_info.items() if "arm64" in i["archs"]]
+    for b in sorted(arm, key=int, reverse=True):
+        mark = " ← 当前" if b == build and host_arch == "arm64" else ""
+        latest = " [推荐]" if fb.get("arm64", {}).get("build") == b else ""
+        print(f"  ✅ build {b}{latest}{mark}")
+
+    print("")
+    print("------ 本机不可用但常见的 build ------")
+    if host_arch == "arm64":
+        if "269077" not in arm:
+            cur = " ← 你当前的版本" if build == "269077" else ""
+            print(f"  ❌ build 269077 (4.1.11) — 无 arm64 offsets{cur}")
+            print("     M 系列请降级到 build 32288 (4.1.5.28)，聊天记录保留")
+    elif host_arch == "x86_64" and build and build not in x64:
+        print(f"  ❌ build {build} — 无 x86_64 offsets")
+
+    print("")
+    print("详细说明: docs/GUIDE.md")
     return 0
 
 

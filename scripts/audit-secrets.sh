@@ -51,10 +51,21 @@ fi
 
 echo ""
 echo "[不应公开的本地路径]"
-if git -C "$ROOT" ls-files | xargs grep -l '/Volumes/DATA/' 2>/dev/null | head -3; then
-    warn "部分文档含本地绝对路径（非密钥，可接受）"
+LEAK_FILES=""
+LEAK_FILES="$(git -C "$ROOT" ls-files | grep -v '^scripts/audit-secrets\.sh$' | xargs grep -lE '/Volumes/DATA/|/Users/[^/]+/\.cursor/projects/' 2>/dev/null || true)"
+if [ -n "$LEAK_FILES" ]; then
+    echo "$LEAK_FILES" | head -5
+    red "已跟踪文件含本地路径，请移除后再推送"
 else
-    ok "无本地磁盘路径硬编码"
+    ok "无本地磁盘路径或 Cursor 项目路径硬编码"
+fi
+
+echo ""
+echo "[个人邮箱/主机名模式（抽样）]"
+if git -C "$ROOT" ls-files | xargs grep -lE '@kahndeiMac|kahn@' 2>/dev/null | head -1; then
+    warn "部分文件含个人主机标识（建议改用通用示例）"
+else
+    ok "无常见个人主机标识"
 fi
 
 echo ""

@@ -25,6 +25,7 @@ SKIP_DOWNLOAD=1
 UPGRADE_WECHAT=0
 PATCH_ONLY=1
 YES=0
+CHECK_ONLY=0
 BACKUP_DIR="$ROOT_DIR/backups"
 
 RED='\033[0;31m'
@@ -143,10 +144,22 @@ handle_missing_wechat() {
 handle_unsupported_version() {
     local build="$1" arch="$2"
     echo ""
-    warn "当前微信版本 build=${build} 尚未适配 ${arch}"
-    echo ""
+    if [ "$arch" = "arm64" ] && [ "$build" = "269077" ]; then
+        warn "检测到 Apple Silicon + 微信 4.1.11 (build 269077)"
+        echo ""
+        echo "  原因：4.1.11 的 offsets 目前仅有 Intel (x86_64) 版本。"
+        echo "  上游 WeChatTweak 也仅维护 x64，M 芯片无法 patch 此版本。"
+        echo ""
+        echo "  解决方案：降级到已验证的 4.1.5.28 (build 32288)"
+        echo "  ✅ 仅替换 WeChat.app，聊天记录完全保留"
+        echo "  ✅ 降级后支持：防撤回 + 多开"
+        echo ""
+    else
+        warn "当前微信版本 build=${build} 尚未适配 ${arch}"
+        echo ""
+    fi
     echo "  你可以："
-    echo "    1) 自动升级到已适配版本（推荐，聊天记录保留）"
+    echo "    1) 自动安装已适配版本（推荐，聊天记录保留）"
     echo "    2) 查看已支持版本列表"
     echo "    3) 退出，等待社区适配"
     echo ""
@@ -194,6 +207,42 @@ post_install_success() {
     fi
 }
 
+run_check_only() {
+    local arch="$1"
+    read_versions
+    echo ""
+    info "检测模式（--check-only）：不会修改任何文件"
+    echo ""
+    echo "  本机架构:     $arch"
+    echo "  微信路径:     $APP_PATH"
+    echo "  微信版本:     ${APP_SHORT:-unknown} (build ${APP_BUILD:-unknown})"
+    echo ""
+
+    if [ ! -d "$APP_PATH" ]; then
+        warn "未找到 WeChat.app"
+        "$ROOT_DIR/tools/wxyyds" versions --app="$APP_PATH" 2>/dev/null || true
+        exit 1
+    fi
+
+    if [ -z "$APP_BUILD" ]; then
+        die "无法读取 CFBundleVersion"
+    fi
+
+    if is_build_supported "$APP_BUILD" "$arch"; then
+        ok "当前版本 build=${APP_BUILD} 支持 ${arch}，可运行 bash install.sh 安装"
+        exit 0
+    fi
+
+    if [ "$arch" = "arm64" ] && [ "$APP_BUILD" = "269077" ]; then
+        warn "Apple Silicon 不支持 4.1.11 (269077)，需降级到 4.1.5.28 (32288)"
+        echo "  聊天记录不会丢失。运行 bash install.sh 并按提示选择降级即可。"
+    else
+        warn "当前版本 build=${APP_BUILD} 不支持 ${arch}"
+    fi
+    "$ROOT_DIR/tools/wxyyds" versions --app="$APP_PATH"
+    exit 1
+}
+
 usage() {
     cat <<EOF
 Usage: install.sh [options]
@@ -208,6 +257,7 @@ Options:
   --skip-download   不自动下载微信（默认开启）
   --with-freeze     注入 Framework（仅禁自动更新，不含撤回 Hook）
   --patch-only      仅 Binary Patch，不注入 Framework（默认，最稳）
+  --check-only      仅检测版本是否支持，不 patch、不修改微信
   --force           跳过版本检查，强制 patch
   --app=PATH        WeChat.app 路径 (default: /Applications/WeChat.app)
   -h, --help        Show help
@@ -442,6 +492,7 @@ main() {
   while [ $# -gt 0 ]; do
     case "$1" in
       -y|--yes)          YES=1; shift ;;
+      --check-only)      CHECK_ONLY=1; shift ;;
       --force)           FORCE=1; shift ;;
       --with-hook|--with-freeze) PATCH_ONLY=0; shift ;;
       --patch-only)      PATCH_ONLY=1; shift ;;
@@ -470,11 +521,16 @@ main() {
     info "找到微信: $APP_PATH"
   fi
 
+  local arch
+  arch="$(detect_arch)"
+
+  if [ "$CHECK_ONLY" -eq 1 ]; then
+    run_check_only "$arch"
+  fi
+
   ensure_wechat_quit
   pause_if_interactive
 
-  local arch
-  arch="$(detect_arch)"
   info "Host architecture: $arch"
 
   if [ "$arch" = "x86_64" ]; then

@@ -1,5 +1,6 @@
 # wxyyds supported WeChat versions (Framework / Hook injection mode)
 # Format: DisplayVersion|CFBundleShortVersionString|CFBundleVersion|Note
 
-4.1.11.21|4.1.11|269077|Intel RecallNotify + FreezeLock + MultiGate
-4.1.10.53|4.1.10|268853|Apple Silicon Framework full features
+4.1.11.21|4.1.11|269077|Intel x86_64 Patch + optional FreezeLock Framework
+4.1.5.28|4.1.5|32288|Apple Silicon arm64 Patch (verified); Framework optional
+# 注：269077 尚无 arm64 offsets，M 系列请用 32288，见 docs/GUIDE.md

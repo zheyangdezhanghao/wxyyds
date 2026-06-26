@@ -1,0 +1,7 @@
+#!/bin/bash
+# 推送前运行安全审计（安装: bash scripts/install-git-hooks.sh）
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+exec bash "$ROOT/scripts/audit-secrets.sh"

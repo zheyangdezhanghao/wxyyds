@@ -32,6 +32,9 @@ jobs:
         run: bash scripts/test-arm64-sim.sh
         timeout-minutes: 15
 
+      - name: Check offsets sync with WeChatTweak upstream
+        run: bash scripts/sync-offsets-check.sh
+
       - name: Security audit
         run: bash scripts/audit-secrets.sh
 

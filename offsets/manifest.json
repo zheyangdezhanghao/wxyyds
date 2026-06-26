@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/wxyyds/wxyyds/main/offsets/manifest.schema.json",
-  "updated": "2026-06-25",
+  "updated": "2026-06-26",
   "wechat_versions_source": "https://github.com/canc3s/wechat-versions/releases",
   "offsets_source": "https://github.com/tanranv5/WeChatTweak/blob/master/config.json",
   "versions": [
@@ -14,17 +14,6 @@
       "dmg": "WeChatMac_4.1.11.dmg",
       "features": ["revoke", "multiInstance"],
       "plugin": "patch"
-    },
-    {
-      "build": "268853",
-      "display": "4.1.10.53",
-      "short": "4.1.10",
-      "arch": ["arm64"],
-      "binary": "Contents/Resources/wechat.dylib",
-      "canc3s_tag": "v4.1.10.53-mac",
-      "dmg": "WeChatMac_4.1.10.53.dmg",
-      "features": ["revoke", "multiInstance", "antiUpdate", "exitWatch", "openLink"],
-      "plugin": "framework"
     },
     {
       "build": "268851",

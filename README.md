@@ -11,7 +11,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/platform-macOS-1A1A2E?style=flat-square" alt="platform" />
-  <img src="https://img.shields.io/badge/arch-Universal%20(arm64%20%2B%20x86__64)-07C160?style=flat-square" alt="arch" />
+  <img src="https://img.shields.io/badge/arch-x86__64%20%2B%20arm64-07C160?style=flat-square" alt="arch" />
   <img src="https://img.shields.io/badge/WeChat-4.0%2B-07C160?style=flat-square" alt="wechat" />
   <img src="https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square" alt="license" />
 </p>
@@ -32,8 +32,9 @@
 | 自动抢红包 | **RedRush** | 🔒 默认关闭 | 后续可选模块 |
 | 群助手 | **GroupBot** | 🔒 默认关闭 | 后续可选模块 |
 
-> **Intel (x86_64)**：Binary Patch 模式，防撤回 + 多开（build 269077 等）  
-> **Apple Silicon (arm64)**：Patch 模式 + 可选 Framework 全功能 — 见 [docs/APPLE-SILICON.md](docs/APPLE-SILICON.md)
+> **Intel (x86_64)**：推荐 **4.1.11 / build 269077** — 防撤回 + 多开  
+> **Apple Silicon (arm64)**：推荐 **4.1.5.28 / build 32288** — M 系暂不支持 4.1.11  
+> 完整说明见 **[docs/GUIDE.md](docs/GUIDE.md)**（安装、版本对照、数据安全）
 
 ## 快速安装
 
@@ -44,7 +45,13 @@
 3. 双击 **`一键安装.command`**
 4. 若被拦截：右键 → **打开** → 确认
 
-> 详细图文说明见 [docs/快速安装.md](docs/快速安装.md)
+> 详细说明见 **[docs/GUIDE.md](docs/GUIDE.md)**（合并了安装、Intel/M 系列、FAQ）
+
+### 仅检测（不修改微信）
+
+```bash
+bash install.sh --check-only
+```
 
 ### 🟢 一行命令（自动下载 + 安装）
 
@@ -129,14 +136,21 @@ wxyyds/
 
 ## 版本适配
 
-offsets 合并自：
+| 架构 | 推荐 build | 微信版本 | 状态 |
+|------|-----------|----------|------|
+| Intel x86_64 | 269077 | 4.1.11.21 | ✅ 最新 |
+| Apple Silicon arm64 | 32288 | 4.1.5.28 | ✅ 已验证 |
+| Apple Silicon | 269077 | 4.1.11 | ❌ 无 arm64 offsets |
 
-- [tanranv5/WeChatTweak](https://github.com/tanranv5/WeChatTweak) — 持续维护（含 4.1.11 / build 269077）
-- [SovietExtension](https://github.com/MustangYM/SovietExtension) — Framework 架构参考
+offsets 上游：[tanranv5/WeChatTweak](https://github.com/tanranv5/WeChatTweak)（4.1.11 **仅 x86_64**）
 
-微信安装包归档：[canc3s/wechat-versions](https://github.com/canc3s/wechat-versions/releases)
+Intel 只要防撤回+多开也可直接用：`brew install tanranv5/tap/wechattweak && wechattweak patch`
 
-**新版本适配需社区贡献 offsets**，见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+同步上游：`bash scripts/sync-offsets.sh --apply`
+
+微信安装包：[canc3s/wechat-versions](https://github.com/canc3s/wechat-versions/releases)
+
+**新版本 offsets 需社区贡献**，见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 顺手可加的好用功能（路线图）
 
