@@ -28,8 +28,8 @@ static NSDictionary *WXDefaultConfig(void) {
     return @{
         @"modules": @{
             @"menuBar": @YES,
-            @"recallNotify": @YES,
-            @"recallInChat": @YES,
+            @"recallNotify": @NO,
+            @"recallInChat": @NO,
             @"recallSync": @NO,
             @"freezeLock": @YES,
             @"exitWatch": @NO,

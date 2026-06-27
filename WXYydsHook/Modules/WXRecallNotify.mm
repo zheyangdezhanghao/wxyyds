@@ -123,12 +123,6 @@ void WXInstallRecallNotify(void) {
     if (!WXModuleEnabled(@"recallNotify")) return;
     if (!g_markerHooked) g_markerHooked = [NSMutableSet set];
 
-    if (g_markerHooked.count == 0) {
-        WXLogWeChatSelectorMatches(@"Revoke", 15);
-        WXLogWeChatSelectorMatches(@"SysMsg", 15);
-        WXLogWeChatSelectorMatches(@"Sync", 15);
-    }
-
     NSArray<NSString *> *patterns = @[
         @"OnMessageRevoke", @"OnMessageRevoked", @"MessageRevoke",
         @"UpdateUiRevoke", @"HandleRevoke", @"RevokeMsg", @"revokemsg",

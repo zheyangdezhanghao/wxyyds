@@ -26,7 +26,7 @@ UPGRADE_WECHAT=0
 PATCH_ONLY=1
 YES=0
 CHECK_ONLY=0
-BACKUP_DIR="$ROOT_DIR/backups"
+BACKUP_DIR="${WXYYDS_BACKUP_DIR:-$ROOT_DIR/backups}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -593,8 +593,12 @@ main() {
       inject_framework "$arch"
       local patch_ids=""
       if [ "$APP_BUILD" = "269077" ] && [ "$arch" = "x86_64" ]; then
-        patch_ids="multiInstance"
-        echo "    防撤回: 指针 Hook + 聊天内灰字（仅 multiInstance 静态 Patch）"
+        if [ "${WXYYDS_RECALL_INCHAT:-0}" = "1" ]; then
+          patch_ids="multiInstance"
+          echo "    防撤回: 指针 Hook + 聊天内灰字（实验性，可能不稳定）"
+        else
+          echo "    防撤回: 静态 Patch RecallGuard + MultiGate（稳定模式）"
+        fi
       else
         echo "    防撤回: 静态 Patch（revoke + multiInstance）"
       fi
@@ -617,9 +621,12 @@ main() {
   echo ""
   info "Post-install verification ..."
   if [ "$use_hook" -eq 1 ]; then
-    if [ "$APP_BUILD" = "269077" ] && [ "$arch" = "x86_64" ]; then
+    if [ "$APP_BUILD" = "269077" ] && [ "$arch" = "x86_64" ] && [ "${WXYYDS_RECALL_INCHAT:-0}" = "1" ]; then
       WXYYDS_PATCH_IDS=multiInstance python3 "$ROOT_DIR/tools/patcher.py" "$APP_PATH" "$CONFIG" "$APP_BUILD" "$arch" verify || die "Patch verification failed"
       ok "Patch verification passed (multiInstance + Framework 指针 Hook 灰字)"
+    elif [ "$APP_BUILD" = "269077" ] && [ "$arch" = "x86_64" ]; then
+      python3 "$ROOT_DIR/tools/patcher.py" "$APP_PATH" "$CONFIG" "$APP_BUILD" "$arch" verify || die "Patch verification failed"
+      ok "Patch verification passed (revoke + multiInstance + Framework 稳定模式)"
     else
       python3 "$ROOT_DIR/tools/patcher.py" "$APP_PATH" "$CONFIG" "$APP_BUILD" "$arch" verify || die "Patch verification failed"
       ok "Patch verification passed (revoke + multiInstance + Framework)"

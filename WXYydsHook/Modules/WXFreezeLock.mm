@@ -39,14 +39,12 @@ void WXInstallFreezeLock(void) {
         NULL
     };
 
-    unsigned int count = 0;
-    Class *classes = objc_copyClassList(&count);
-    for (unsigned int i = 0; i < count; i++) {
-        Class cls = classes[i];
-        const char *name = class_getName(cls);
-        if (!strstr(name, "Sparkle") && !strstr(name, "SPU") && !strstr(name, "Updater")) {
-            continue;
-        }
+    for (NSString *cn in @[
+             @"SPUUpdater", @"SUUpdater", @"SPUStandardUserDriver",
+             @"SPUStandardUpdaterController", @"AppDelegate",
+             @"WeChatAppDelegate", @"MMAppDelegate"]) {
+        Class cls = NSClassFromString(cn);
+        if (!cls) continue;
         for (int s = 0; selectors[s]; s++) {
             SEL sel = sel_registerName(selectors[s]);
             if (class_getInstanceMethod(cls, sel)) {
@@ -55,14 +53,6 @@ void WXInstallFreezeLock(void) {
         }
         wx_block_bool_false(cls, sel_registerName("automaticallyDownloadsUpdates"));
         wx_block_bool_false(cls, sel_registerName("canCheckForUpdate"));
-    }
-    free(classes);
-
-    for (NSString *cn in @[@"AppDelegate", @"WeChatAppDelegate", @"MMAppDelegate"]) {
-        Class cls = NSClassFromString(cn);
-        if (!cls) continue;
-        wx_block_updater(cls, sel_registerName("checkForUpdates:"));
-        wx_block_updater(cls, sel_registerName("initSparkleConfigIfNeeded"));
     }
     WXLog(@"FreezeLock installed");
 }

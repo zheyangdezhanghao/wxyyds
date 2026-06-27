@@ -14,7 +14,8 @@ MANIFEST="$ROOT_DIR/offsets/manifest.json"
 APP_PATH="${WXYYDS_APP:-/Applications/WeChat.app}"
 CANC3S_API="https://api.github.com/repos/canc3s/wechat-versions/releases"
 CANC3S_DL="https://github.com/canc3s/wechat-versions/releases/download"
-TMP_DIR="${TMPDIR:-/tmp}/wxyyds-$$"
+DL_BASE="${WXYYDS_DL_MIRROR:-$CANC3S_DL}"
+TMP_DIR="${WXYYDS_TMP:-/tmp}/wxyyds-$$"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -83,18 +84,27 @@ download_and_verify() {
     local dmg_name="$2"
     local dest="$TMP_DIR/$dmg_name"
 
-    info "Downloading $dmg_name from canc3s/wechat-versions ($tag) ..."
+    info "Downloading $dmg_name from canc3s/wechat-versions ($tag) ..." >&2
 
-    local url="$CANC3S_DL/$tag/$dmg_name"
+    local url="$DL_BASE/$tag/$dmg_name"
     local sha_url="$url.sha256"
 
     if ! curl -fsSL -o "$dest" "$url"; then
-        die "Download failed: $url"
+        if [ "$DL_BASE" != "$CANC3S_DL" ]; then
+            die "Download failed: $url"
+        fi
+        warn "Primary download failed, retrying via ghfast mirror ..." >&2
+        url="https://ghfast.top/${CANC3S_DL}/${tag}/${dmg_name}"
+        sha_url="${url}.sha256"
+        curl -fsSL -o "$dest" "$url" || die "Download failed: $url"
     fi
 
     if curl -fsSL -o "$TMP_DIR/check.sha256" "$sha_url" 2>/dev/null; then
         local expected actual
-        expected="$(awk '{print $1}' "$TMP_DIR/check.sha256")"
+        expected="$(grep -Eo '[a-fA-F0-9]{64}' "$TMP_DIR/check.sha256" | head -1)"
+        if [ -z "$expected" ]; then
+            expected="$(awk '{print $1}' "$TMP_DIR/check.sha256")"
+        fi
         if command -v shasum >/dev/null 2>&1; then
             actual="$(shasum -a 256 "$dest" | awk '{print $1}')"
         else
@@ -103,9 +113,9 @@ download_and_verify() {
         if [ "$expected" != "$actual" ]; then
             die "SHA256 mismatch! expected=$expected actual=$actual"
         fi
-        ok "SHA256 verified"
+        ok "SHA256 verified" >&2
     else
-        warn "No .sha256 file found, skipping checksum"
+        warn "No .sha256 file found, skipping checksum" >&2
     fi
 
     echo "$dest"
@@ -113,9 +123,9 @@ download_and_verify() {
 
 install_dmg() {
     local dmg_path="$1"
-    info "Mounting DMG ..."
+    info "Mounting DMG ..." >&2
     local mount_point
-    mount_point="$(hdiutil attach "$dmg_path" -nobrowse -quiet | tail -1 | awk '{$1=$2=""; print $0}' | xargs)"
+    mount_point="$(hdiutil attach "$dmg_path" -nobrowse | awk -F'\t' 'NF >= 2 && $NF ~ /^\/Volumes\// { print $NF; exit }')"
     if [ -z "$mount_point" ]; then
         die "Failed to mount DMG"
     fi
@@ -123,19 +133,22 @@ install_dmg() {
     local wechat_app
     wechat_app="$(find "$mount_point" -maxdepth 2 -name 'WeChat.app' -type d 2>/dev/null | head -1)"
     if [ -z "$wechat_app" ]; then
+        wechat_app="$(find /Volumes -maxdepth 2 -name 'WeChat.app' -type d 2>/dev/null | head -1)"
+    fi
+    if [ -z "$wechat_app" ]; then
         hdiutil detach "$mount_point" -quiet 2>/dev/null || true
         die "WeChat.app not found in DMG"
     fi
 
-    info "Installing to $APP_PATH ..."
+    info "Installing to $APP_PATH ..." >&2
     if [ -d "$APP_PATH" ]; then
-        warn "Removing existing WeChat.app"
+        warn "Removing existing WeChat.app" >&2
         rm -rf "$APP_PATH"
     fi
     cp -R "$wechat_app" "$APP_PATH"
 
     hdiutil detach "$mount_point" -quiet 2>/dev/null || true
-    ok "WeChat installed"
+    ok "WeChat installed" >&2
 }
 
 usage() {

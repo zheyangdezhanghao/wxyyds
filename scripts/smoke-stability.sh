@@ -37,10 +37,12 @@ check "wechat.dylib exists" test -f "$DYLIB"
 check "WeChat binary exists" test -f "$BINARY"
 
 read -r PY_PASS PY_FAIL < <(python3 << PY
+import subprocess
 import sys
 from pathlib import Path
 
 dylib = Path("$DYLIB")
+binary = Path("$BINARY")
 pass_n = fail_n = 0
 
 def ok(msg):
@@ -53,6 +55,16 @@ def bad(msg):
     print(f"  ❌ {msg}", file=sys.stderr)
     fail_n += 1
 
+framework_mode = False
+if binary.exists():
+    otool = subprocess.run(
+        ["otool", "-L", str(binary)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    framework_mode = "WXYyds" in (otool.stdout or "")
+
 if dylib.exists():
     b = dylib.read_bytes()
     revoke = b[0x4000 + 0x4F4D4C0:0x4000 + 0x4F4D4C0 + 6].hex()
@@ -60,7 +72,9 @@ if dylib.exists():
     call_site = b[0x4000 + 0x4F4D44E:0x4000 + 0x4F4D44E + 5].hex()
 
     if revoke == "b801000000c3":
-        ok("revoke handler patched (RecallGuard)")
+        ok("revoke handler patched (RecallGuard static)")
+    elif revoke.startswith("554889") and framework_mode:
+        ok("revoke handler original prologue (Framework pointer hook 灰字)")
     elif revoke.startswith("554889"):
         bad("revoke handler NOT patched (RecallGuard inactive)")
     else:
@@ -84,21 +98,23 @@ FAIL=$((FAIL + PY_FAIL))
 
 echo ""
 echo "[Framework 注入]"
-if otool -L "$BINARY" 2>/dev/null | grep -qi wxyyds; then
-    echo "  ⚠️  WXYyds.framework injected (patch-only 模式应无注入)"
-    WARN=$((WARN + 1))
-else
-    echo "  ✅ 无 Framework 注入 (patch-only 推荐)"
-    PASS=$((PASS + 1))
-fi
-
 FW="$APP_PATH/Contents/MacOS/WXYyds.framework/WXYyds"
-if [ -f "$FW" ]; then
-    echo "  ⚠️  WXYyds.framework 仍存在磁盘上"
-    WARN=$((WARN + 1))
+if otool -L "$BINARY" 2>/dev/null | grep -qi wxyyds; then
+    if [ -f "$FW" ]; then
+        echo "  ✅ WXYyds.framework 已注入 (Intel 269077 灰字模式)"
+        PASS=$((PASS + 1))
+    else
+        echo "  ❌ 二进制已注入但 Framework 文件缺失"
+        FAIL=$((FAIL + 1))
+    fi
 else
-    echo "  ✅ Framework 未安装"
-    PASS=$((PASS + 1))
+    if [ -f "$FW" ]; then
+        echo "  ⚠️  Framework 在磁盘上但未注入 WeChat 二进制"
+        WARN=$((WARN + 1))
+    else
+        echo "  ✅ 无 Framework 注入 (patch-only 模式)"
+        PASS=$((PASS + 1))
+    fi
 fi
 
 echo ""
@@ -107,6 +123,24 @@ if [ -f /tmp/wxyyds-hook.log ]; then
     if grep -q "call-site hook installed" /tmp/wxyyds-hook.log 2>/dev/null; then
         echo "  ⚠️  历史日志含 call-site hook（旧版，已禁用；可 rm /tmp/wxyyds-hook.log 清除）"
         WARN=$((WARN + 1))
+    elif grep -q "RevokeInChat: overwrite slot" /tmp/wxyyds-hook.log 2>/dev/null; then
+        if python3 -c "
+from pathlib import Path
+import subprocess
+b = Path('$DYLIB').read_bytes()
+revoke = b[0x4000 + 0x4F4D4C0:0x4000 + 0x4F4D4C0 + 6].hex()
+binary = Path('$BINARY')
+fw = binary.exists() and 'WXYyds' in subprocess.check_output(['otool','-L',str(binary)], text=True, stderr=subprocess.DEVNULL)
+if revoke == 'b801000000c3' and fw:
+    raise SystemExit(0)
+raise SystemExit(1)
+" 2>/dev/null; then
+            echo "  ℹ️  历史日志含指针 Hook，当前为稳定模式（静态 RecallGuard）"
+            PASS=$((PASS + 1))
+        else
+            echo "  ✅ RevokeInChat 指针 Hook 已写入"
+            PASS=$((PASS + 1))
+        fi
     else
         echo "  ✅ 无 call-site hook 记录"
         PASS=$((PASS + 1))
@@ -127,7 +161,7 @@ if [ "${WXYYDS_SMOKE_LAUNCH:-0}" = "1" ]; then
     sleep 3
     alive=0
     for _ in $(seq 1 12); do
-        if pgrep -x WeChat >/dev/null 2>&1; then
+        if pgrep -x WeChat >/dev/null 2>&1 || pgrep -f 'WeChatAppEx.app/Contents/MacOS/WeChatAppEx ' >/dev/null 2>&1; then
             alive=1
         else
             alive=0

@@ -55,10 +55,13 @@ typedef void (*WXMessageWrapDestructFunc)(int64_t message);
 typedef int64_t (*WXInsertPaySysMsgToSessionFunc)(int64_t a1,
                                                   const std::string *session,
                                                   const std::string *content);
+typedef int64_t (*WXRevokeHandlerFn)(int64_t a1, int64_t a2);
 
 static uintptr_t g_dylibSlide = 0;
 static BOOL g_hookInstalled = NO;
 static const WXRevokeProfile *g_profile = NULL;
+static WXRevokeHandlerFn g_nativeRevokeHandler = NULL;
+static BOOL g_handlingRevoke = NO;
 
 static uintptr_t WXRuntimePtr(uintptr_t va) {
     return g_dylibSlide + va;
@@ -244,14 +247,23 @@ static BOOL WXRevokeHandlerIsStaticPatched(void) {
     return bytes[0] == 0xB8 && bytes[1] == 0x01 && bytes[5] == 0xC3;
 }
 
-static BOOL WXWritePointer(uintptr_t address, uintptr_t value) {
+static BOOL WXWritePointer(uintptr_t address, uintptr_t value, uintptr_t slide) {
     if (address == 0 || value == 0) return NO;
     uintptr_t *target = (uintptr_t *)address;
     uintptr_t current = *target;
     if (current == value) return YES;
-    if (current != 0 && current != value) {
-        WXLog(@"RevokeInChat: pointer slot already set (0x%lx), skip", (unsigned long)current);
-        return NO;
+
+    uintptr_t nativeHandler = slide + g_profile->revokeHandlerVA;
+    if (current != 0 && current != value && !g_nativeRevokeHandler) {
+        g_nativeRevokeHandler = (WXRevokeHandlerFn)current;
+    }
+    if (!g_nativeRevokeHandler && nativeHandler != 0) {
+        g_nativeRevokeHandler = (WXRevokeHandlerFn)nativeHandler;
+    }
+    if (current != 0 && current != nativeHandler) {
+        WXLog(@"RevokeInChat: overwrite slot at 0x%lx was=0x%lx native=0x%lx new=0x%lx",
+              (unsigned long)address, (unsigned long)current,
+              (unsigned long)nativeHandler, (unsigned long)value);
     }
     vm_size_t pageSize = (vm_size_t)getpagesize();
     vm_address_t pageStart = (vm_address_t)(address & ~((uintptr_t)pageSize - 1));
@@ -395,11 +407,31 @@ static BOOL WXInsertLocalNotice(int64_t rawRevokeMessage) {
 #pragma mark - Hook
 
 static int64_t WXHandleSysMsgRevokeHook(int64_t a1, int64_t a2) {
-    WXLog(@"RevokeInChat: intercepted revoke a1=0x%llx a2=0x%llx",
-          (unsigned long long)a1, (unsigned long long)a2);
-    BOOL inserted = WXInsertLocalNotice(a2);
-    WXLog(@"RevokeInChat: insert notice=%d", inserted ? 1 : 0);
-    return 1;
+    if (g_handlingRevoke) {
+        if (g_nativeRevokeHandler) return g_nativeRevokeHandler(a1, a2);
+        return 0;
+    }
+    if (a2 == 0) {
+        if (g_nativeRevokeHandler) return g_nativeRevokeHandler(a1, a2);
+        return 0;
+    }
+
+    g_handlingRevoke = YES;
+    int64_t result = 1;
+    @try {
+        WXLog(@"RevokeInChat: intercepted revoke a1=0x%llx a2=0x%llx",
+              (unsigned long long)a1, (unsigned long long)a2);
+        BOOL inserted = WXInsertLocalNotice(a2);
+        WXLog(@"RevokeInChat: insert notice=%d", inserted ? 1 : 0);
+    } @catch (NSException *ex) {
+        WXLog(@"RevokeInChat: hook exception %@, forwarding", ex.name);
+        if (g_nativeRevokeHandler) result = g_nativeRevokeHandler(a1, a2);
+    } @catch (...) {
+        WXLog(@"RevokeInChat: hook exception, forwarding");
+        if (g_nativeRevokeHandler) result = g_nativeRevokeHandler(a1, a2);
+    }
+    g_handlingRevoke = NO;
+    return result;
 }
 
 static BOOL WXIsTargetDylibPath(NSString *imagePath) {
@@ -427,11 +459,21 @@ static BOOL WXInstallPointerHook(intptr_t slide, NSString *source) {
     WXLog(@"RevokeInChat: install from %@ slide=0x%lx slot=0x%lx hook=0x%lx",
           source, (unsigned long)g_dylibSlide, (unsigned long)slot, (unsigned long)hookFn);
 
-    if (!WXWritePointer(slot, hookFn)) {
+    if (!WXWritePointer(slot, hookFn, g_dylibSlide)) {
         return NO;
     }
     g_hookInstalled = YES;
     return YES;
+}
+
+static void WXDelayedInstallPointerHook(intptr_t slide, NSString *source) {
+    if (g_hookInstalled) return;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(15 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
+        if (!g_hookInstalled) {
+            WXInstallPointerHook(slide, [NSString stringWithFormat:@"%@ (delayed)", source]);
+        }
+    });
 }
 
 static void WXOnImageAdded(const struct mach_header *mh, intptr_t slide) {
@@ -443,14 +485,13 @@ static void WXOnImageAdded(const struct mach_header *mh, intptr_t slide) {
         NSString *path = [NSString stringWithUTF8String:name];
         if (!WXIsTargetDylibPath(path)) continue;
         intptr_t imageSlide = _dyld_get_image_vmaddr_slide(i);
-        if (WXInstallPointerHook(imageSlide, @"dyld add image")) {
-            return;
-        }
+        WXDelayedInstallPointerHook(imageSlide, @"dyld add image");
+        return;
     }
-    WXInstallPointerHook(slide, @"dyld add image fallback");
 }
 
 static BOOL WXScanLoadedDylib(void) {
+    if (g_hookInstalled) return YES;
     uint32_t count = _dyld_image_count();
     for (uint32_t i = 0; i < count; i++) {
         const char *name = _dyld_get_image_name(i);
@@ -458,9 +499,8 @@ static BOOL WXScanLoadedDylib(void) {
         NSString *path = [NSString stringWithUTF8String:name];
         if (!WXIsTargetDylibPath(path)) continue;
         intptr_t slide = _dyld_get_image_vmaddr_slide(i);
-        if (WXInstallPointerHook(slide, @"dyld scan")) {
-            return YES;
-        }
+        WXDelayedInstallPointerHook(slide, @"dyld scan");
+        return YES;
     }
     return NO;
 }
@@ -498,7 +538,16 @@ void WXInstallRevokeInChat(void) {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
         if (!g_hookInstalled) {
-            WXScanLoadedDylib();
+            uint32_t count = _dyld_image_count();
+            for (uint32_t i = 0; i < count; i++) {
+                const char *name = _dyld_get_image_name(i);
+                if (!name) continue;
+                NSString *path = [NSString stringWithUTF8String:name];
+                if (!WXIsTargetDylibPath(path)) continue;
+                intptr_t slide = _dyld_get_image_vmaddr_slide(i);
+                WXDelayedInstallPointerHook(slide, @"dyld scan");
+                return;
+            }
         }
     });
 }
