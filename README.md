@@ -18,23 +18,34 @@
 
 ---
 
-**wxyyds** 是面向 macOS 的微信增强助手。防撤回、多开、禁更新、退群监控，一切由你决定。
+**wxyyds** 是面向 macOS 的微信增强助手。防撤回、多开、禁更新、菜单栏助手，一切由你决定。
 
 ## 功能
 
-| 模块 | 代号 | 状态 | 说明 |
-|------|------|------|------|
-| 消息防撤回 | **RecallGuard** | ✅ 稳定 | 删不掉的记忆 |
-| 客户端多开 | **MultiGate** | ✅ 稳定 | `open -n /Applications/WeChat.app` |
-| 阻止更新 | **FreezeLock** | ✅ 稳定 | arm64 全量；Intel patch 模式 |
-| 退群监控 | **ExitWatch** | ⚡ Framework | Apple Silicon + Framework 模式 |
-| 系统浏览器 | **OpenLink** | ⚡ Framework | 链接用系统浏览器打开 |
-| 自动抢红包 | **RedRush** | 🔒 默认关闭 | 后续可选模块 |
-| 群助手 | **GroupBot** | 🔒 默认关闭 | 后续可选模块 |
+| 模块 | 代号 | 默认模式 | Framework 模式 | 说明 |
+|------|------|----------|----------------|------|
+| 消息防撤回 | **RecallGuard** | ✅ 稳定 | ✅ 稳定 | 静态 Patch，原消息保留 |
+| 客户端多开 | **MultiGate** | ✅ 稳定 | ✅ 稳定 | `open -n /Applications/WeChat.app` |
+| 阻止更新 | **FreezeLock** | — | ✅ 稳定 | Runtime Swizzle，菜单可开关 |
+| 菜单栏助手 | **MenuBar** | — | ✅ | 「wxyyds 助手」菜单 |
+| 撤回提醒 | **RecallNotify** | — | ⚠️ 默认关 | 弹窗 + 系统通知（菜单开启） |
+| 聊天内灰字 | **RecallInChat** | — | 🧪 实验 | 需 `WXYYDS_RECALL_INCHAT=1`，可能不稳定 |
+| 退群监控 | **ExitWatch** | — | ⚠️ 默认关 | Framework 菜单开启 |
+| 系统浏览器 | **OpenLink** | — | ⚠️ **默认关** | 菜单手动开启；v0.6.1 修复链接卡死 |
 
-> **Intel (x86_64)**：推荐 **4.1.11 / build 269077** — 防撤回 + 多开  
+> **Intel (x86_64)**：推荐 **4.1.11 / build 269077** — Patch + 可选 Framework  
 > **Apple Silicon (arm64)**：推荐 **4.1.5.28 / build 32288** — M 系暂不支持 4.1.11  
-> 完整说明见 **[docs/GUIDE.md](docs/GUIDE.md)**（安装、版本对照、数据安全）
+> 完整说明见 **[docs/GUIDE.md](docs/GUIDE.md)** · Intel 专篇 **[docs/INTEL-GUIDE.md](docs/INTEL-GUIDE.md)**
+
+## 安装模式
+
+| 命令 | 适用场景 |
+|------|----------|
+| `bash install.sh` | **默认（最稳）**：仅 Binary Patch（防撤回 + 多开） |
+| `bash install.sh --with-framework` | **推荐 Intel 269077**：注入 WXYydsHook（菜单 + 禁更新 + 稳定防撤回） |
+| `WXYYDS_RECALL_INCHAT=1 bash install.sh --with-framework` | **实验**：聊天内灰字（可能登录后崩溃，不推荐日常使用） |
+
+安装脚本会自动编译 `WXYydsHook`（若尚未构建）。全自动无确认：`bash install.sh --yes`
 
 ## 快速安装
 
@@ -45,7 +56,7 @@
 3. 双击 **`一键安装.command`**
 4. 若被拦截：右键 → **打开** → 确认
 
-> 详细说明见 **[docs/GUIDE.md](docs/GUIDE.md)**（合并了安装、Intel/M 系列、FAQ）
+> 详细说明见 **[docs/GUIDE.md](docs/GUIDE.md)**
 
 ### 仅检测（不修改微信）
 
@@ -75,8 +86,6 @@ bash install.sh
 4. 检测微信 `CFBundleVersion`，不支持时**交互式升级**（聊天记录保留）
 5. 备份 → 打补丁 → 重签名 → 安装后自检
 
-全自动（无确认）：`bash install.sh --yes`
-
 ### 先打开一次微信
 
 如果是全新安装，请先手动打开一次微信，再运行 `install.sh`，否则可能提示「已损坏，无法打开」。
@@ -84,6 +93,13 @@ bash install.sh
 ### 权限
 
 `系统设置 → 隐私与安全性` 为当前终端开启 **完整磁盘访问权限**。
+
+### 安装后验证
+
+```bash
+bash scripts/smoke-stability.sh
+tail -f /tmp/wxyyds-hook.log   # Framework 模式日志
+```
 
 ## CLI
 
@@ -117,20 +133,22 @@ wxyyds/
 ├── 一键安装.command        # 双击傻瓜安装（小白推荐）
 ├── install.sh              # 一键安装
 ├── uninstall.sh            # 卸载
+├── WXYydsHook/             # Framework 源码（菜单、禁更新、撤回提醒等）
+│   └── build.sh            # 编译 WXYyds.framework
 ├── scripts/
 │   ├── bootstrap.sh        # 一行 curl 在线安装
-│   └── smoke-stability.sh  # 安装后自检
+│   ├── smoke-stability.sh  # 安装后自检
+│   └── wechat-download.sh  # canc3s 版本下载器
 ├── offsets/
 │   ├── config.json         # 合并自 tanranv5 的 patch offsets
+│   ├── hook_269077.json    # Intel 灰字指针 Hook 偏移（实验）
 │   └── manifest.json       # 版本 ↔ canc3s release 映射
 ├── tools/
 │   ├── wxyyds              # CLI
 │   └── patcher.py          # Mach-O 补丁引擎
-├── scripts/
-│   └── wechat-download.sh  # canc3s 版本下载器
 ├── Rely/
 │   ├── supported_versions.txt
-│   └── Plugin/             # WXYyds.framework（可选）
+│   └── Plugin/             # WXYyds.framework 产物目录
 └── .github/workflows/
 ```
 
@@ -138,7 +156,7 @@ wxyyds/
 
 | 架构 | 推荐 build | 微信版本 | 状态 |
 |------|-----------|----------|------|
-| Intel x86_64 | 269077 | 4.1.11.21 | ✅ 最新 |
+| Intel x86_64 | 269077 | 4.1.11.21 | ✅ 最新 + Framework |
 | Apple Silicon arm64 | 32288 | 4.1.5.28 | ✅ 已验证 |
 | Apple Silicon | 269077 | 4.1.11 | ❌ 无 arm64 offsets |
 
@@ -152,18 +170,16 @@ Intel 只要防撤回+多开也可直接用：`brew install tanranv5/tap/wechatt
 
 **新版本 offsets 需社区贡献**，见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
+## 数据安全
+
+| 路径 | wxyyds 是否修改 |
+|------|----------------|
+| `~/Library/Containers/com.tencent.xinWeChat` | ❌ **永不**（聊天记录） |
+| `/Applications/WeChat.app` | ✅ 仅 patch 二进制 + 备份 |
+
 ## 顺手可加的好用功能（路线图）
 
-| 功能 | 难度 | 说明 |
-|------|------|------|
-| 链接系统浏览器 | ★★☆ | Framework 模式已有（OpenLink） |
-| 退群提醒 | ★★☆ | Framework 模式已有（ExitWatch） |
-| 消息时间戳显示 | ★★☆ | Hook MessageWrap 字段 |
-| 免打扰群折叠增强 | ★★☆ | UI Hook |
-| Alfred / Raycast 集成 | ★★☆ | sunnyyoung 已有实践 |
-| 禁止「正在输入」状态 | ★★★ | 需定位 typing 回调 |
-| 聊天记录导出快捷键 | ★★★ | 菜单 + 已有 API Hook |
-| 自动翻译（实验） | ★★★ | 可选模块 |
+见 [docs/ROADMAP.md](docs/ROADMAP.md)。
 
 ## 免责声明
 

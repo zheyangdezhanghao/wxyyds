@@ -1,4 +1,5 @@
 #import "WXCommon.h"
+#import "WXVersion.h"
 #import <AppKit/AppKit.h>
 
 @interface WXMenuManager : NSObject
@@ -70,7 +71,7 @@ static NSMenuItem *WXMakeToggleItem(NSString *title, NSString *moduleKey, SEL ac
     multi.target = [WXMenuManager class];
     [menu addItem:multi];
     [menu addItem:[NSMenuItem separatorItem]];
-    NSMenuItem *ver = [[NSMenuItem alloc] initWithTitle:@"当前版本 0.5.0" action:nil keyEquivalent:@""];
+    NSMenuItem *ver = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"当前版本 %@", @WXYyds_VERSION] action:nil keyEquivalent:@""];
     ver.enabled = NO;
     [menu addItem:ver];
 

@@ -88,9 +88,12 @@ void WXSetModuleEnabled(NSString *moduleKey, BOOL enabled) {
 
 BOOL WXModuleEnabled(NSString *moduleKey) {
     NSDictionary *modules = WXLoadConfig()[@"modules"];
-    if (![modules isKindOfClass:[NSDictionary class]]) return YES;
-    id v = modules[moduleKey];
-    if (v == nil) return YES;
+    NSDictionary *defaults = WXDefaultConfig()[@"modules"];
+    id v = [modules isKindOfClass:[NSDictionary class]] ? modules[moduleKey] : nil;
+    if (v == nil) {
+        v = defaults[moduleKey];
+    }
+    if (v == nil) return NO;
     return [v boolValue];
 }
 

@@ -5,6 +5,7 @@
 static std::atomic<bool> g_openLinkInstalled(false);
 static IMP g_origOpenURL = NULL;
 static IMP g_origOpenURLConfig = NULL;
+static thread_local BOOL g_openLinkForwarding = NO;
 
 static BOOL WXIsHttpURL(id urlObj) {
     if (![urlObj isKindOfClass:[NSURL class]]) return NO;
@@ -24,22 +25,24 @@ static BOOL WXCallstackLooksLikeWeChat(void) {
     return NO;
 }
 
+static BOOL WXCallOrigOpenURL(NSWorkspace *workspace, NSURL *url) {
+    if (!g_origOpenURL || !url) return NO;
+    return ((BOOL (*)(id, SEL, NSURL *))g_origOpenURL)(workspace, @selector(openURL:), url);
+}
+
+static void WXCallOrigOpenURLConfig(NSWorkspace *workspace, NSURL *url, id config, id handler) {
+    if (!g_origOpenURLConfig || !url) return;
+    ((void (*)(id, SEL, NSURL *, id, id))g_origOpenURLConfig)(
+        workspace, @selector(openURL:configuration:completionHandler:), url, config, handler);
+}
+
 static void WXOpenInSystemBrowser(NSURL *url) {
-    if (!url) return;
+    if (!url || g_openLinkForwarding) return;
+    g_openLinkForwarding = YES;
     WXLog(@"OpenLink: %@", url.absoluteString);
-    [[NSWorkspace sharedWorkspace] openURL:url];
+    WXCallOrigOpenURL([NSWorkspace sharedWorkspace], url);
+    g_openLinkForwarding = NO;
 }
-
-@interface WXOpenLinkWorkspace : NSObject
-@end
-
-@implementation WXOpenLinkWorkspace
-
-+ (void)load {
-    // NSWorkspace hooks installed from WXInstallOpenLink after dyld settles.
-}
-
-@end
 
 void WXInstallOpenLink(void) {
     if (!WXModuleEnabled(@"openLink")) return;
@@ -53,11 +56,14 @@ void WXInstallOpenLink(void) {
     if (m1) {
         g_origOpenURL = method_getImplementation(m1);
         IMP hook1 = imp_implementationWithBlock(^BOOL(id self, NSURL *url) {
+            if (g_openLinkForwarding) {
+                return WXCallOrigOpenURL((NSWorkspace *)self, url);
+            }
             if (WXIsHttpURL(url) && WXCallstackLooksLikeWeChat()) {
                 WXOpenInSystemBrowser(url);
                 return YES;
             }
-            return ((BOOL (*)(id, SEL, NSURL *))g_origOpenURL)(self, sel1, url);
+            return WXCallOrigOpenURL((NSWorkspace *)self, url);
         });
         method_setImplementation(m1, hook1);
         WXLog(@"OpenLink hooked -[NSWorkspace openURL:]");
@@ -68,6 +74,10 @@ void WXInstallOpenLink(void) {
         if (m2) {
             g_origOpenURLConfig = method_getImplementation(m2);
             IMP hook2 = imp_implementationWithBlock(^void(id self, NSURL *url, id config, id handler) {
+                if (g_openLinkForwarding) {
+                    WXCallOrigOpenURLConfig((NSWorkspace *)self, url, config, handler);
+                    return;
+                }
                 if (WXIsHttpURL(url) && WXCallstackLooksLikeWeChat()) {
                     WXOpenInSystemBrowser(url);
                     if (handler) {
@@ -75,7 +85,7 @@ void WXInstallOpenLink(void) {
                     }
                     return;
                 }
-                ((void (*)(id, SEL, NSURL *, id, id))g_origOpenURLConfig)(self, sel2, url, config, handler);
+                WXCallOrigOpenURLConfig((NSWorkspace *)self, url, config, handler);
             });
             method_setImplementation(m2, hook2);
             WXLog(@"OpenLink hooked -[NSWorkspace openURL:configuration:completionHandler:]");
@@ -85,7 +95,7 @@ void WXInstallOpenLink(void) {
     __block int extra = 0;
     extra += WXSwizzleMethodsMatching(@"openURLWithDefaultBrowser", ^(Class cls, SEL sel, IMP originalIMP) {
         IMP wrapper = imp_implementationWithBlock(^void(id self, NSURL *url) {
-            if (WXIsHttpURL(url)) {
+            if (WXIsHttpURL(url) && !g_openLinkForwarding) {
                 WXOpenInSystemBrowser(url);
                 return;
             }

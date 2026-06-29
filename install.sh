@@ -249,13 +249,14 @@ Usage: install.sh [options]
 
 小白推荐：直接双击「一键安装.command」，或在终端运行 bash install.sh
 
-默认安全模式：不替换微信、不触碰聊天数据，仅 patch WeChat.app。
+默认 Patch-only：防撤回 + 多开，不注入 Framework（最稳）。
+Intel 269077 推荐：bash install.sh --with-framework（菜单 + 禁更新 + 稳定防撤回）。
 
 Options:
   -y, --yes         全自动安装，跳过所有确认（适合脚本）
   --upgrade-wechat  从 canc3s 下载并安装新版本（仅替换 .app，聊天记录保留）
   --skip-download   不自动下载微信（默认开启）
-  --with-freeze     注入 Framework（菜单 + 撤回提醒 + 禁更新）
+  --with-freeze     注入 WXYydsHook Framework（菜单 + 禁更新 + 可选撤回提醒）
   --with-framework  同 --with-freeze
   --patch-only      仅 Binary Patch，不注入 Framework（默认，最稳）
   --check-only      仅检测版本是否支持，不 patch、不修改微信
@@ -263,10 +264,16 @@ Options:
   --app=PATH        WeChat.app 路径 (default: /Applications/WeChat.app)
   -h, --help        Show help
 
+环境变量：
+  WXYYDS_RECALL_INCHAT=1   实验：聊天内灰字（269077，可能登录后闪退，不推荐日常）
+  WXYYDS_BACKUP_DIR        自定义 WeChat.app 备份目录
+
 数据安全说明：
   聊天记录在 ~/Library/Containers/com.tencent.xinWeChat
   wxyyds 永远不会删除或修改该目录。
   仅会备份并修改 /Applications/WeChat.app 内二进制文件。
+
+文档：docs/GUIDE.md · Intel：docs/INTEL-GUIDE.md
 
 一行命令安装（复制到终端）：
   git clone https://github.com/zheyangdezhanghao/wxyyds.git && cd wxyyds && bash install.sh

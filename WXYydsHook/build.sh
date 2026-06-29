@@ -64,7 +64,7 @@ cat > "$OUT_DIR/Resources/Info.plist" <<'PLIST'
     <key>CFBundleName</key>
     <string>WXYyds</string>
     <key>CFBundleVersion</key>
-    <string>0.6.0</string>
+    <string>0.6.1</string>
     <key>CFBundleExecutable</key>
     <string>WXYyds</string>
     <key>CFBundlePackageType</key>
